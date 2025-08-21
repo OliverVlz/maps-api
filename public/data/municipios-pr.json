@@ -1,0 +1,477 @@
+{
+  "municipios": [
+    {
+      "name": "Adjuntas",
+      "region": "Central",
+      "population": 19543,
+      "area": "162.8 km²"
+    },
+    {
+      "name": "Aguada",
+      "region": "Oeste",
+      "population": 41959,
+      "area": "78.8 km²"
+    },
+    {
+      "name": "Aguadilla",
+      "region": "Noroeste",
+      "population": 60949,
+      "area": "94.4 km²"
+    },
+    {
+      "name": "Aguas Buenas",
+      "region": "Metro",
+      "population": 28659,
+      "area": "78.1 km²"
+    },
+    {
+      "name": "Aibonito",
+      "region": "Central",
+      "population": 25549,
+      "area": "80.4 km²"
+    },
+    {
+      "name": "Arecibo",
+      "region": "Norte",
+      "population": 96440,
+      "area": "127.3 km²"
+    },
+    {
+      "name": "Arroyo",
+      "region": "Sur",
+      "population": 19033,
+      "area": "37.7 km²"
+    },
+    {
+      "name": "Barceloneta",
+      "region": "Norte",
+      "population": 24816,
+      "area": "36.9 km²"
+    },
+    {
+      "name": "Barranquitas",
+      "region": "Central",
+      "population": 30318,
+      "area": "88.8 km²"
+    },
+    {
+      "name": "Bayamón",
+      "region": "Metro",
+      "population": 208116,
+      "area": "114.8 km²"
+    },
+    {
+      "name": "Cabo Rojo",
+      "region": "Suroeste",
+      "population": 50917,
+      "area": "181.6 km²"
+    },
+    {
+      "name": "Caguas",
+      "region": "Este",
+      "population": 142893,
+      "area": "155.9 km²"
+    },
+    {
+      "name": "Camuy",
+      "region": "Noroeste",
+      "population": 35159,
+      "area": "119.8 km²"
+    },
+    {
+      "name": "Canóvanas",
+      "region": "Metro",
+      "population": 47648,
+      "area": "83.4 km²"
+    },
+    {
+      "name": "Carolina",
+      "region": "Metro",
+      "population": 176762,
+      "area": "145.0 km²"
+    },
+    {
+      "name": "Cataño",
+      "region": "Metro",
+      "population": 28140,
+      "area": "12.8 km²"
+    },
+    {
+      "name": "Cayey",
+      "region": "Central",
+      "population": 48119,
+      "area": "133.8 km²"
+    },
+    {
+      "name": "Ceiba",
+      "region": "Este",
+      "population": 13631,
+      "area": "75.7 km²"
+    },
+    {
+      "name": "Cidra",
+      "region": "Central",
+      "population": 43480,
+      "area": "92.2 km²"
+    },
+    {
+      "name": "Coamo",
+      "region": "Centro-Sur",
+      "population": 40817,
+      "area": "202.0 km²"
+    },
+    {
+      "name": "Comerío",
+      "region": "Central",
+      "population": 20778,
+      "area": "67.9 km²"
+    },
+    {
+      "name": "Corozal",
+      "region": "Central",
+      "population": 37142,
+      "area": "110.5 km²"
+    },
+    {
+      "name": "Culebra",
+      "region": "Este",
+      "population": 1818,
+      "area": "30.1 km²"
+    },
+    {
+      "name": "Dorado",
+      "region": "Norte",
+      "population": 38165,
+      "area": "59.8 km²"
+    },
+    {
+      "name": "Fajardo",
+      "region": "Este",
+      "population": 36993,
+      "area": "77.2 km²"
+    },
+    {
+      "name": "Florida",
+      "region": "Central",
+      "population": 12680,
+      "area": "24.8 km²"
+    },
+    {
+      "name": "Guánica",
+      "region": "Suroeste",
+      "population": 19427,
+      "area": "94.4 km²"
+    },
+    {
+      "name": "Guayama",
+      "region": "Sur",
+      "population": 45362,
+      "area": "91.7 km²"
+    },
+    {
+      "name": "Guayanilla",
+      "region": "Suroeste",
+      "population": 21581,
+      "area": "109.0 km²"
+    },
+    {
+      "name": "Guaynabo",
+      "region": "Metro",
+      "population": 97924,
+      "area": "70.0 km²"
+    },
+    {
+      "name": "Gurabo",
+      "region": "Este",
+      "population": 45369,
+      "area": "73.8 km²"
+    },
+    {
+      "name": "Hatillo",
+      "region": "Norte",
+      "population": 41953,
+      "area": "107.9 km²"
+    },
+    {
+      "name": "Hormigueros",
+      "region": "Suroeste",
+      "population": 17250,
+      "area": "28.7 km²"
+    },
+    {
+      "name": "Humacao",
+      "region": "Este",
+      "population": 58466,
+      "area": "115.6 km²"
+    },
+    {
+      "name": "Isabela",
+      "region": "Noroeste",
+      "population": 45631,
+      "area": "142.8 km²"
+    },
+    {
+      "name": "Jayuya",
+      "region": "Central",
+      "population": 16642,
+      "area": "99.0 km²"
+    },
+    {
+      "name": "Juana Díaz",
+      "region": "Sur",
+      "population": 50747,
+      "area": "152.9 km²"
+    },
+    {
+      "name": "Juncos",
+      "region": "Este",
+      "population": 40290,
+      "area": "68.0 km²"
+    },
+    {
+      "name": "Lajas",
+      "region": "Suroeste",
+      "population": 25753,
+      "area": "146.8 km²"
+    },
+    {
+      "name": "Lares",
+      "region": "Oeste",
+      "population": 30753,
+      "area": "159.4 km²"
+    },
+    {
+      "name": "Las Marías",
+      "region": "Oeste",
+      "population": 9881,
+      "area": "119.0 km²"
+    },
+    {
+      "name": "Las Piedras",
+      "region": "Este",
+      "population": 38675,
+      "area": "87.1 km²"
+    },
+    {
+      "name": "Loíza",
+      "region": "Metro",
+      "population": 30060,
+      "area": "51.2 km²"
+    },
+    {
+      "name": "Luquillo",
+      "region": "Este",
+      "population": 20068,
+      "area": "65.3 km²"
+    },
+    {
+      "name": "Manatí",
+      "region": "Norte",
+      "population": 44113,
+      "area": "119.0 km²"
+    },
+    {
+      "name": "Maricao",
+      "region": "Oeste",
+      "population": 6276,
+      "area": "95.2 km²"
+    },
+    {
+      "name": "Maunabo",
+      "region": "Sureste",
+      "population": 12225,
+      "area": "56.4 km²"
+    },
+    {
+      "name": "Mayagüez",
+      "region": "Oeste",
+      "population": 89080,
+      "area": "200.2 km²"
+    },
+    {
+      "name": "Moca",
+      "region": "Oeste",
+      "population": 40109,
+      "area": "128.0 km²"
+    },
+    {
+      "name": "Morovis",
+      "region": "Norte",
+      "population": 32610,
+      "area": "160.3 km²"
+    },
+    {
+      "name": "Naguabo",
+      "region": "Este",
+      "population": 26720,
+      "area": "135.1 km²"
+    },
+    {
+      "name": "Naranjito",
+      "region": "Central",
+      "population": 30402,
+      "area": "68.7 km²"
+    },
+    {
+      "name": "Orocovis",
+      "region": "Central",
+      "population": 23423,
+      "area": "160.1 km²"
+    },
+    {
+      "name": "Patillas",
+      "region": "Sur",
+      "population": 19277,
+      "area": "118.9 km²"
+    },
+    {
+      "name": "Peñuelas",
+      "region": "Suroeste",
+      "population": 22515,
+      "area": "113.4 km²"
+    },
+    {
+      "name": "Ponce",
+      "region": "Sur",
+      "population": 166327,
+      "area": "296.0 km²"
+    },
+    {
+      "name": "Quebradillas",
+      "region": "Noroeste",
+      "population": 25919,
+      "area": "59.3 km²"
+    },
+    {
+      "name": "Rincón",
+      "region": "Oeste",
+      "population": 15200,
+      "area": "35.6 km²"
+    },
+    {
+      "name": "Río Grande",
+      "region": "Este",
+      "population": 54304,
+      "area": "155.6 km²"
+    },
+    {
+      "name": "Sabana Grande",
+      "region": "Sur",
+      "population": 25265,
+      "area": "93.9 km²"
+    },
+    {
+      "name": "Salinas",
+      "region": "Sur",
+      "population": 31078,
+      "area": "170.4 km²"
+    },
+    {
+      "name": "San Germán",
+      "region": "Suroeste",
+      "population": 35978,
+      "area": "142.1 km²"
+    },
+    {
+      "name": "San Juan",
+      "region": "Metro",
+      "population": 342259,
+      "area": "127.2 km²"
+    },
+    {
+      "name": "San Lorenzo",
+      "region": "Este",
+      "population": 41058,
+      "area": "135.1 km²"
+    },
+    {
+      "name": "San Sebastián",
+      "region": "Oeste",
+      "population": 42430,
+      "area": "181.0 km²"
+    },
+    {
+      "name": "Santa Isabel",
+      "region": "Sur",
+      "population": 23274,
+      "area": "92.0 km²"
+    },
+    {
+      "name": "Toa Alta",
+      "region": "Metro",
+      "population": 74066,
+      "area": "71.3 km²"
+    },
+    {
+      "name": "Toa Baja",
+      "region": "Metro",
+      "population": 89609,
+      "area": "62.2 km²"
+    },
+    {
+      "name": "Trujillo Alto",
+      "region": "Metro",
+      "population": 74842,
+      "area": "55.6 km²"
+    },
+    {
+      "name": "Utuado",
+      "region": "Central",
+      "population": 33149,
+      "area": "264.4 km²"
+    },
+    {
+      "name": "Vega Alta",
+      "region": "Norte",
+      "population": 39951,
+      "area": "71.5 km²"
+    },
+    {
+      "name": "Vega Baja",
+      "region": "Norte",
+      "population": 59662,
+      "area": "112.2 km²"
+    },
+    {
+      "name": "Vieques",
+      "region": "Este",
+      "population": 9301,
+      "area": "134.4 km²"
+    },
+    {
+      "name": "Villalba",
+      "region": "Central",
+      "population": 26073,
+      "area": "91.9 km²"
+    },
+    {
+      "name": "Yabucoa",
+      "region": "Sureste",
+      "population": 37941,
+      "area": "142.2 km²"
+    },
+    {
+      "name": "Yauco",
+      "region": "Suroeste",
+      "population": 42043,
+      "area": "176.5 km²"
+    }
+  ],
+  "metadata": {
+    "total_municipalities": 78,
+    "source": "Census Bureau - Estado Libre Asociado de Puerto Rico",
+    "last_updated": "2024-01-01",
+    "regions": [
+      "Metro",
+      "Norte",
+      "Sur", 
+      "Este",
+      "Oeste",
+      "Central",
+      "Noroeste",
+      "Suroeste",
+      "Sureste",
+      "Centro-Sur"
+    ]
+  }
+}
