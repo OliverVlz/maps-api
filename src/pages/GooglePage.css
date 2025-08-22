@@ -1,0 +1,49 @@
+
+.google-page-container {
+  padding: 24px 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.google-title {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.google-content-flex {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 1px;
+}
+
+
+.google-form-section {
+  flex: 1 1 350px;
+  min-width: 320px;
+  max-width: 480px;
+  box-sizing: border-box;
+}
+
+
+.google-map-section {
+  flex: 2 1 500px;
+  min-width: 400px;
+  max-width: 900px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .google-content-flex {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .google-form-section, .google-map-section {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
