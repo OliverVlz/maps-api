@@ -19,9 +19,6 @@
 }
 
 .app-main {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
@@ -487,6 +484,53 @@
 
 .address-details p {
   margin: 0.25rem 0;
+}
+
+.validation-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.generic-address-warning {
+  background: #f0f9ff;
+  border: 1px solid #0284c7;
+  border-left: 4px solid #0284c7;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.generic-address-warning h6 {
+  margin: 0 0 0.5rem 0;
+  color: #0369a1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.generic-address-warning p {
+  margin: 0 0 1rem 0;
+  color: #075985;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.suggestions {
+  color: #075985;
+  font-size: 0.8rem;
+}
+
+.suggestions ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.2rem;
+}
+
+.suggestions li {
+  margin-bottom: 0.3rem;
+  line-height: 1.4;
 }
 
 .validation-warning {

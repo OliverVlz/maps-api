@@ -1,0 +1,129 @@
+/* HERE Page Styles */
+.here-page-container {
+  padding: 24px 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.here-title {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.here-content-flex {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 1px;
+}
+
+.here-form-section {
+  flex: 1 1 350px;
+  min-width: 320px;
+  max-width: 480px;
+  box-sizing: border-box;
+}
+
+.here-map-section {
+  flex: 2 1 500px;
+  min-width: 400px;
+  max-width: 900px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .here-content-flex {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .here-form-section, .here-map-section {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.feature-item {
+  text-align: center;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.feature-item span {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.feature-item strong {
+  display: block;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.feature-item p {
+  color: #666;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .here-page-container {
+    padding: 16px 4px;
+  }
+  
+  .here-title {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .here-content-flex {
+    gap: 16px;
+  }
+}
+
+/* HERE specific styling */
+.here-form-section .address-form h2 {
+  color: #00afaa;
+  border-bottom: 2px solid #00afaa;
+  padding-bottom: 0.5rem;
+}
+
+.here-form-section .search-status.success {
+  background-color: #e8f5f5;
+  border-left: 4px solid #00afaa;
+  color: #00afaa;
+}
+
+.here-form-section .suggestion-item:hover {
+  background-color: #e8f5f5;
+  border-left: 3px solid #00afaa;
+}
+
+.here-map-section .map-container h3 {
+  color: #00afaa;
+  border-bottom: 1px solid #00afaa;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
