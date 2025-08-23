@@ -1,31 +1,63 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 
-// Lista de municipios como fallback
-function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+// Función para validar y parsear coordenadas (comentada - no se usa sin botón)
+/*
+const parseCoordinates = (coordString) => {
+  if (!coordString) return null
+  
+  // Remover espacios y separar por coma
+  const trimmed = coordString.trim()
+  const parts = trimmed.split(',').map(part => part.trim())
+  
+  if (parts.length !== 2) return null
+  
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+  
+  // Validar que sean números válidos y estén en rangos razonables
+  if (isNaN(lat) || isNaN(lng)) return null
+  if (lat < -90 || lat > 90) return null
+  if (lng < -180 || lng > 180) return null
+  
+  return { lat, lng }
+}
+*/
+
+function GoogleAddressForm({ 
+  addressData, 
+  setAddressData, 
+  onLocationSelect, 
+  onRealAddressUpdate, 
+  onCoordinatesDataUpdate
+  // onAddressSelect,
+  // onDetailsUpdate 
+}) {
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: addressData
   })
-  const [autocompleteService, setAutocompleteService] = useState(null)
-  const [placesService, setPlacesService] = useState(null)
+  
+  // Estados para autocompletado y sugerencias
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [isSelectingAddress, setIsSelectingAddress] = useState(false)
   const [searchStatus, setSearchStatus] = useState(null)
-  const [submittedData, setSubmittedData] = useState(null)
-  const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
+  // const [submittedData, setSubmittedData] = useState(null)
   
-  // Debug: Log cuando realAddressFromCoords cambie
-  useEffect(() => {
-    console.log('🔍 realAddressFromCoords cambió:', realAddressFromCoords)
-  }, [realAddressFromCoords])
+  // Estados para coordenadas manuales
   const [manualCoordinates, setManualCoordinates] = useState('')
   const [coordinatesData, setCoordinatesData] = useState(null)
   const [coordinatesError, setCoordinatesError] = useState('')
   const [isValidatingCoords, setIsValidatingCoords] = useState(false)
   const [hasSelectedSuggestion, setHasSelectedSuggestion] = useState(false)
-  const [directGeocodingWarning, setDirectGeocodingWarning] = useState(null)
+  
+  // Estados específicos para Google Maps
+  // const [autocompleteService, setAutocompleteService] = useState(null)
+  // const [placesService, setPlacesService] = useState(null)
+  // const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
+  // const [directGeocodingWarning] = useState(null)
+  // const [setDirectGeocodingWarning] = useState(null)
   
   // Estados para municipios dinámicos
   const [municipios, setMunicipios] = useState([])
@@ -36,15 +68,10 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
   const debounceTimeoutRef = useRef(null)
   const currentQueryRef = useRef('')
 
-  useEffect(() => {
-    if (window.google && window.google.maps) {
-      const autocomplete = new window.google.maps.places.AutocompleteService()
-      const places = new window.google.maps.places.PlacesService(document.createElement('div'))
-      setAutocompleteService(autocomplete)
-      setPlacesService(places)
-    }
+  const watchedFields = watch()
 
-    // Cargar municipios desde API
+  // Cargar municipios al montar el componente
+  useEffect(() => {
     const loadMunicipios = async () => {
       setIsLoadingMunicipios(true)
       
@@ -69,7 +96,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
             
             setMunicipios(municipiosFromCensus)
             setMunicipiosSource('census-bureau')
-            console.log('✅ Municipios cargados desde Census Bureau (oficial):', municipiosFromCensus.length)
+            console.log('✅ HERE - Municipios cargados desde Census Bureau (oficial):', municipiosFromCensus.length)
             setIsLoadingMunicipios(false)
             return
           }
@@ -77,7 +104,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
         
         throw new Error('Census Bureau API no disponible')
       } catch (error) {
-        console.log('⚠️ No se pudo cargar desde Census Bureau:', error.message)
+        console.log('⚠️ HERE - No se pudo cargar desde Census Bureau:', error.message)
         
         try {
           // Opción 2: Fallback a archivo local (rápido y confiable)
@@ -93,7 +120,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
               
               setMunicipios(municipiosFromLocal)
               setMunicipiosSource('local-json')
-              console.log('✅ Municipios cargados desde archivo local (fallback):', municipiosFromLocal.length)
+              console.log('✅ HERE - Municipios cargados desde archivo local (fallback):', municipiosFromLocal.length)
               setIsLoadingMunicipios(false)
               return
             }
@@ -101,7 +128,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
           
           throw new Error('Archivo local no disponible')
         } catch (error2) {
-          console.log('❌ Error: No se pudieron cargar municipios desde ninguna fuente:', error2.message)
+          console.log('❌ HERE - Error: No se pudieron cargar municipios desde ninguna fuente:', error2.message)
           setIsLoadingMunicipios(false)
         }
       }
@@ -117,17 +144,19 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
   }, [])
 
   // Sincronizar el formulario cuando addressData cambie desde el componente padre
+  // Solo al inicializar, no crear bucles
   useEffect(() => {
-    console.log('🔄 useEffect - addressData recibido del padre:', addressData)
+    console.log('🔄 HERE - useEffect - addressData inicial recibido del padre:', addressData)
     if (addressData) {
       setValue('linea1', addressData.linea1 || '')
       setValue('linea2', addressData.linea2 || '')
       setValue('municipio', addressData.municipio || '')
       setValue('barrio', addressData.barrio || '')
       setValue('descripcion', addressData.descripcion || '')
-      console.log('✅ Formulario sincronizado con addressData del padre:', addressData)
+      console.log('✅ HERE - Formulario sincronizado con addressData inicial del padre:', addressData)
     }
-  }, [addressData, setValue])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Solo al montar el componente
 
   // Función para formatear direcciones de manera organizada
   const formatAddressForDisplay = (addressData) => {
@@ -172,499 +201,246 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
     return processedAddress
   }
 
+  // Función para hacer búsquedas con HERE API
   const searchAddress = (query) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current)
     }
     
-    if (!autocompleteService || query.length < 3) {
+    if (query.length < 3) {
       setSuggestions([])
       setSearchStatus(null)
       setIsSearching(false)
-      setHasSelectedSuggestion(false) // Resetear estado de selección
-      setDirectGeocodingWarning(null) // Limpiar cualquier advertencia previa
+      setHasSelectedSuggestion(false)
       return
     }
 
     setIsSearching(true)
     setSearchStatus(null)
-    setHasSelectedSuggestion(false) // Resetear cuando se hace nueva búsqueda
+    setHasSelectedSuggestion(false)
 
     // Detectar si el usuario incluyó barrio manualmente en la búsqueda
     const barrioInQuery = query.match(/\b(?:bo\.?|barrio)\s+([^,]+)/i)
     if (barrioInQuery) {
-      console.log('🏘️ Barrio detectado en búsqueda:', barrioInQuery[1].trim())
+      console.log('🏘️ HERE - Barrio detectado en búsqueda:', barrioInQuery[1].trim())
     }
 
     // Guardar la query original para usar en selectAddress
     currentQueryRef.current = query
 
-    debounceTimeoutRef.current = setTimeout(() => {
-      const allPredictions = []
-      let completedRequests = 0
-      const totalRequests = 3
-
-      const handleResponse = (predictions, status) => {
-        completedRequests++
-        
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          allPredictions.push(...predictions)
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        const apiKey = import.meta.env.VITE_HERE_API_KEY
+        if (!apiKey) {
+          throw new Error('HERE API Key no configurada')
         }
 
-        if (completedRequests === totalRequests) {
-          setIsSearching(false)
-          
-          if (allPredictions.length > 0) {
-            const uniquePredictions = allPredictions.filter((prediction, index, self) => 
-              index === self.findIndex(p => p.place_id === prediction.place_id)
-            )
-            setSuggestions(uniquePredictions.slice(0, 10))
-        setShowSuggestions(true)
-            setSearchStatus({ 
-              type: 'success', 
-              message: `${uniquePredictions.length} ubicaciones encontradas. Selecciona una para obtener la ubicación exacta.` 
-            })
-      } else {
-        setSuggestions([])
-        setShowSuggestions(false)
-            setSearchStatus({ 
-              type: 'warning', 
-              message: 'No se encontraron sugerencias automáticas. Puedes llenar el formulario manualmente y se intentará ubicar la dirección.' 
-            })
-          }
+        const encodedQuery = encodeURIComponent(`${query}, Puerto Rico`)
+        const url = `https://autosuggest.search.hereapi.com/v1/autosuggest?q=${encodedQuery}&at=18.2208,-66.5901&limit=5&lang=es&in=countryCode:PRI&apiKey=${apiKey}`
+
+        console.log('🔍 HERE - Buscando:', query)
+        
+        const response = await fetch(url)
+        
+        if (!response.ok) {
+          throw new Error(`Error en búsqueda: ${response.status} ${response.statusText}`)
         }
-      }
 
-      const geocodeRequest = {
-        input: preprocessPuertoRicanAddress(query),
-        componentRestrictions: { country: 'pr' },
-        types: ['geocode']
-      }
+        const data = await response.json()
+        console.log('📍 HERE - Respuesta de búsqueda:', data)
 
-      const establishmentRequest = {
-        input: preprocessPuertoRicanAddress(query),
-        componentRestrictions: { country: 'pr' },
-        types: ['establishment']
-      }
+        if (data.items && data.items.length > 0) {
+          const hereSuggestions = data.items.map((item, index) => ({
+            place_id: `here_${index}_${Date.now()}`,
+            description: item.title,
+            title: item.title,
+            address: item.address,
+            position: item.position,
+            resultType: item.resultType,
+            hereId: item.id
+          }))
 
-      const regionRequest = {
-        input: query,
-        componentRestrictions: { country: 'pr' },
-        types: ['(regions)']
-      }
-
-      // Búsqueda mejorada para direcciones rurales con variaciones de términos
-      const ruralVariations = []
-      if (/\bKM\b|\bkilómetro\b|\bCarr\b|\bCarretera\b|\bPR-?\d|\bRuta\b/i.test(query)) {
-        console.log('🛣️ Búsqueda rural detectada, ampliando términos...')
-        
-        // Expandir abreviaciones comunes
-        let expandedQuery = query
-          .replace(/\bCarr\.?\s*(\d+)/gi, 'Carretera $1')
-          .replace(/\bPR-?(\d+)/gi, 'PR-$1 Carretera $1')
-          .replace(/\bKM\s*([\d.]+)/gi, 'kilómetro $1')
-        
-        if (expandedQuery !== query) {
-          ruralVariations.push({
-            input: expandedQuery,
-            componentRestrictions: { country: 'pr' },
-            types: ['geocode']
+          setSuggestions(hereSuggestions)
+          setShowSuggestions(true)
+          setSearchStatus({ 
+            type: 'success', 
+            message: `✅ ${hereSuggestions.length} sugerencias encontradas con HERE Maps` 
+          })
+          console.log('✅ HERE - Sugerencias encontradas:', hereSuggestions.length)
+        } else {
+          setSuggestions([])
+          setShowSuggestions(false)
+          setSearchStatus({ 
+            type: 'warning', 
+            message: '⚠️ No se encontraron sugerencias para esta búsqueda' 
           })
         }
-      }
-
-      autocompleteService.getPlacePredictions(geocodeRequest, handleResponse)
-      autocompleteService.getPlacePredictions(establishmentRequest, handleResponse)
-      autocompleteService.getPlacePredictions(regionRequest, handleResponse)
-
-      // Realizar búsquedas adicionales para variaciones rurales
-      ruralVariations.forEach(ruralRequest => {
-        autocompleteService.getPlacePredictions(ruralRequest, (predictions, status) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            allPredictions.push(...predictions)
-          }
+      } catch (error) {
+        console.error('❌ HERE - Error en búsqueda:', error)
+        setSuggestions([])
+        setShowSuggestions(false)
+        setSearchStatus({ 
+          type: 'error', 
+          message: `❌ Error en búsqueda: ${error.message}` 
         })
-      })
+      } finally {
+        setIsSearching(false)
+      }
     }, 300)
   }
 
-  const selectAddress = (placeId, originalQuery = '') => {
-    if (!placesService) return
-
+  // Función para seleccionar una dirección de las sugerencias
+  const selectAddress = async (placeId) => {
     setIsSelectingAddress(true)
-    setSearchStatus(null)
-    setSuggestions([])
     setShowSuggestions(false)
-
-    // Extraer barrio de la búsqueda original si existe
-    const barrioPatterns = [
-      /\b(?:bo\.?|barrio)\s+([^,]+)/i,    // "bo. naranjo" o "barrio pueblo"
-      /,\s*([^,]+?)(?:\s*,|$)/g           // Último elemento después de coma
-    ]
+    setHasSelectedSuggestion(true)
     
-    let manualBarrio = null
-    
-    // Intentar primer patrón (bo./barrio explícito)
-    const explicitBarrio = originalQuery.match(barrioPatterns[0])
-    if (explicitBarrio) {
-      manualBarrio = explicitBarrio[1].trim()
-      console.log('🏘️ Barrio explícito detectado:', manualBarrio)
-    } else {
-      // Si no hay patrón explícito, intentar extraer de la estructura de la búsqueda
-      // Ejemplo: "32 pr-156, comerio, bo. naranjo" - tomar "bo. naranjo"
-      const parts = originalQuery.split(',').map(p => p.trim())
-      if (parts.length >= 3) {
-        const lastPart = parts[parts.length - 1]
-        // Verificar si la última parte parece un barrio
-        if (lastPart.match(/\b(?:bo\.?|pueblo|centro|urb\.?|sector)\b/i) || 
-            (!lastPart.match(/\d/) && lastPart.length > 2)) {
-          manualBarrio = lastPart
-          console.log('🏘️ Barrio inferido de estructura:', manualBarrio)
-        }
+    try {
+      const suggestion = suggestions.find(s => s.place_id === placeId)
+      if (!suggestion) {
+        throw new Error('Sugerencia no encontrada')
       }
-    }
-    
-    console.log('🔍 Query original:', originalQuery, '| Barrio detectado:', manualBarrio)
 
-    const request = {
-      placeId: placeId,
-      fields: [
-        'geometry', 
-        'formatted_address', 
-        'address_components',
-        'name',
-        'place_id',
-        'types',
-        'vicinity',
-        'adr_address'
-      ]
-    }
+      console.log('📍 HERE - Sugerencia seleccionada:', suggestion)
 
-    placesService.getDetails(request, (place, status) => {
-      setIsSelectingAddress(false)
-      
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-        const location = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
+      // Si la sugerencia tiene posición, actualizar mapa directamente
+      if (suggestion.position) {
+        const location = { 
+          lat: suggestion.position.lat, 
+          lng: suggestion.position.lng 
         }
-
+        
         onLocationSelect(location)
-
-        // Realizar geocodificación inversa para obtener la dirección REAL de las coordenadas
-        const geocoder = new window.google.maps.Geocoder()
         
-        // Intentar múltiples estrategias de geocodificación inversa
-        const geocodingStrategies = [
-          // Estrategia 1: Sin restricciones de país (más completa)
-          { location: location },
-          // Estrategia 2: Con restricciones de país
-          { location: location, componentRestrictions: { country: 'pr' } },
-          // Estrategia 3: Con tipos específicos
-          { location: location, types: ['street_address', 'route', 'political'] }
-        ]
-        
-        const tryGeocodingStrategy = (strategyIndex = 0) => {
-          if (strategyIndex >= geocodingStrategies.length) {
-            console.log('⚠️ Todas las estrategias de geocodificación fallaron')
-            // Usar los datos del Places API como fallback
-            const fallbackData = {
-              coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
-              direccion_completa: place.formatted_address || 'Ubicación en Puerto Rico',
-              municipio: municipio || 'No detectado',
-              barrio: barrio || 'No detectado',
-              componentes: place.address_components?.map(c => ({
-                nombre: c.long_name,
-                tipos: c.types
-              })) || []
-            }
-            setRealAddressFromCoords(fallbackData)
-            console.log('🔄 Usando datos del Places API como fallback:', fallbackData)
-            return
-          }
-          
-          console.log(`🔍 Intentando estrategia de geocodificación ${strategyIndex + 1}:`, geocodingStrategies[strategyIndex])
-          
-          geocoder.geocode(geocodingStrategies[strategyIndex], (results, status) => {
-            if (status === 'OK' && results && results.length > 0) {
-              // Buscar el resultado más específico (no solo "Puerto Rico")
-              let bestResult = null
-              
-              for (let result of results) {
-                const addressParts = result.formatted_address.split(',').length
-                const hasSpecificLocation = !result.formatted_address.toLowerCase().includes('puerto rico') || 
-                                          addressParts > 2
-                
-                if (hasSpecificLocation) {
-                  bestResult = result
-                  break
-                }
-              }
-              
-              // Si no encontramos resultado específico, usar el primero
-              const realResult = bestResult || results[0]
-              console.log(`✅ Geocodificación exitosa con estrategia ${strategyIndex + 1}:`, realResult.formatted_address)
-              
-              const realComponents = realResult.address_components
-            
-            // Extraer datos reales de la coordenada
-            const realMunicipio = realComponents.find(component => 
-              component.types.includes('administrative_area_level_2')
-            )?.long_name || ''
-            
-            const realBarrio = realComponents.find(component => 
-              component.types.includes('sublocality_level_1') || 
-              component.types.includes('neighborhood') ||
-              component.types.includes('sublocality') ||
-              component.types.includes('locality')
-            )?.long_name || ''
-
-            const realAddressData = {
-              coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
-              direccion_completa: realResult.formatted_address,
-              municipio: realMunicipio,
-              barrio: realBarrio,
-              componentes: realComponents.map(c => ({
-                nombre: c.long_name,
-                tipos: c.types
-              }))
-            }
-            
-            setRealAddressFromCoords(realAddressData)
-            
-            // TAMBIÉN actualizar coordinatesData para mostrar "Detalles de la Ubicación"
-            const detailedCoordinatesData = {
-              coordinates: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
-              formatted_address: realResult.formatted_address,
-              municipio: realMunicipio,
-              barrio: realBarrio,
-              route: realComponents.find(c => c.types.includes('route'))?.long_name || '',
-              street_number: realComponents.find(c => c.types.includes('street_number'))?.long_name || '',
-              place_id: realResult.place_id,
-              location_type: realResult.geometry.location_type,
-              components: realComponents.map(c => ({
-                name: c.long_name,
-                short_name: c.short_name,
-                types: c.types
-              })),
-              precision: getPrecisionLevel(realResult.geometry.location_type),
-              lat: location.lat,
-              lng: location.lng
-            }
-            setCoordinatesData(detailedCoordinatesData)
-            
-            console.log('🌍 DIRECCIÓN REAL de las coordenadas:', realAddressData)
-            console.log('🔍 Estado realAddressFromCoords actualizado:', realAddressData)
-            console.log('📍 Estado coordinatesData actualizado:', detailedCoordinatesData)
-            console.log('📊 COMPARACIÓN - Real vs Usuario:', {
-              coordenadas: realAddressData.coordenadas,
-              municipio_real: realMunicipio,
-              municipio_usuario: municipio,
-              barrio_real: realBarrio,
-              barrio_usuario: barrio || manualBarrio,
-              coincide_municipio: realMunicipio.toLowerCase() === municipio.toLowerCase(),
-              coincide_barrio: realBarrio.toLowerCase() === (barrio || manualBarrio || '').toLowerCase()
-            })
-            } else {
-              console.log(`❌ Estrategia ${strategyIndex + 1} falló: ${status}`)
-              tryGeocodingStrategy(strategyIndex + 1)
-            }
-          })
-        }
-        
-        // Iniciar el proceso de geocodificación
-        tryGeocodingStrategy()
-
-        const addressComponents = place.address_components || []
-        
-        console.log('🗺️ Lugar seleccionado:', {
-          nombre: place.name,
-          direccion_formateada: place.formatted_address,
-          tipos: place.types,
-          vicinity: place.vicinity
-        })
-        
-        console.log('🗺️ Componentes de dirección encontrados:', addressComponents.map(c => ({
-          nombre: c.long_name,
-          tipos: c.types
-        })))
-        
-        const municipio = addressComponents.find(component => 
-          component.types.includes('administrative_area_level_2')
-        )?.long_name || ''
-
-        let barrio = addressComponents.find(component => 
-          component.types.includes('sublocality_level_1') || 
-          component.types.includes('neighborhood') ||
-          component.types.includes('sublocality') ||
-          component.types.includes('locality')
-        )?.long_name || ''
-
-        // Si no encontramos barrio en los componentes pero es un establishment o lugar específico
-        if (!barrio && place.name && place.types && 
-            (place.types.includes('establishment') || place.types.includes('point_of_interest'))) {
-          // Usar el vicinity o extraer de la dirección formateada
-          if (place.vicinity) {
-            const vicinityParts = place.vicinity.split(',')
-            if (vicinityParts.length > 1) {
-              barrio = vicinityParts[vicinityParts.length - 2].trim()
-            }
-          }
-        }
-
-        // Si aún no hay barrio, usar el que detectamos en la búsqueda manual
-        if (!barrio && manualBarrio) {
-          barrio = manualBarrio
-          console.log('🏘️ Usando barrio manual:', barrio)
-        }
-
-        console.log('📍 Datos extraídos - Municipio:', municipio, '| Barrio:', barrio)
-
-        const currentFormData = watch()
-
-        // Mejorar la dirección línea 1
-        let direccionLinea1 = place.formatted_address.split(',')[0]
-        
-        // Detectar y mejorar direcciones rurales con kilómetros
-        const fullAddress = place.formatted_address
-        
-        // Buscar patrones de carreteras rurales en la dirección completa
-        const ruralPatterns = [
-          /\bKM\s*[\d.]+/i,
-          /\bkilómetro\s*[\d.]+/i,
-          /\bCarr\.?\s*\d+/i,
-          /\bCarretera\s*\d+/i,
-          /\bPR-?\s*\d+/i,
-          /\bRuta\s*\d+/i
-        ]
-        
-        const hasRuralPattern = ruralPatterns.some(pattern => pattern.test(fullAddress))
-        
-        if (hasRuralPattern) {
-          // Para direcciones rurales, usar más contexto de la dirección formateada
-          const addressParts = fullAddress.split(',')
-          if (addressParts.length >= 2) {
-            direccionLinea1 = `${addressParts[0].trim()}, ${addressParts[1].trim()}`
-          }
-          console.log('🛣️ Dirección rural detectada con KM/Carretera')
-        }
-        
-        // Si es un establishment/lugar específico, incluir el nombre
-        if (place.name && place.types && 
-            (place.types.includes('establishment') || place.types.includes('point_of_interest'))) {
-          // Solo agregar el nombre si no está ya incluido en la dirección
-          if (!direccionLinea1.toLowerCase().includes(place.name.toLowerCase())) {
-            direccionLinea1 = `${place.name}, ${direccionLinea1}`
-          }
-        }
-
-        setValue('linea1', direccionLinea1)
-        if (municipio && municipios.includes(municipio)) {
-          setValue('municipio', municipio)
-        }
-        if (barrio) {
-          setValue('barrio', barrio)
-        }
-
-        const updatedData = {
-          linea1: direccionLinea1,
-          municipio: municipio && municipios.includes(municipio) ? municipio : currentFormData.municipio || '',
-          linea2: currentFormData.linea2 || '',
-          barrio: barrio || currentFormData.barrio || '',
-          descripcion: currentFormData.descripcion || ''
-        }
-
-        console.log('📋 Datos finales a guardar:', {
-          direccionLinea1,
-          municipio,
-          barrio,
-          barrioFuente: barrio ? 
-            (manualBarrio && barrio === manualBarrio ? 'manual' : 'google maps') : 
-            'no encontrado',
-          updatedData
-        })
-        setAddressData(updatedData)
-        
-        let statusMessage = `Dirección seleccionada | ${formatAddressForDisplay(updatedData)}`
-        if (hasRuralPattern) {
-          statusMessage = `Dirección rural seleccionada | ${formatAddressForDisplay(updatedData)}`
-        }
-        
-        setSearchStatus({ type: 'success', message: statusMessage })
-        setHasSelectedSuggestion(true)
+        // Hacer reverse geocoding para obtener dirección real
+        await reverseGeocodeWithFetch(location)
       } else {
-        setSearchStatus({ type: 'error', message: 'Error al obtener detalles de la dirección' })
+        // Si no tiene posición, hacer geocoding
+        await geocodeAddressWithFetch(suggestion.title)
       }
-    })
-  }
 
-  const formatUserAddress = () => {
-    const parts = []
-    if (addressData.linea1) parts.push(addressData.linea1)
-    if (addressData.linea2) parts.push(addressData.linea2)
-    if (addressData.barrio) parts.push(addressData.barrio)
-    if (addressData.municipio) parts.push(`${addressData.municipio}, PR`)
-    return parts.join(', ')
-  }
+      // Actualizar datos del formulario con setValue para que se vean en la UI
+      if (suggestion.address?.street || suggestion.title) {
+        setValue('linea1', suggestion.address?.street || suggestion.title || '')
+      }
+      if (suggestion.address?.district) {
+        setValue('barrio', suggestion.address?.district || '')
+      }
+      if (suggestion.address?.city) {
+        setValue('municipio', suggestion.address?.city || '')
+      }
 
-  // Función para detectar si la dirección real es demasiado genérica
-  const isGenericAddress = () => {
-    if (!realAddressFromCoords) return false
-    
-    const address = realAddressFromCoords.direccion_completa.toLowerCase()
-    const municipio = realAddressFromCoords.municipio.toLowerCase()
-    const barrio = realAddressFromCoords.barrio.toLowerCase()
-    
-    // Direcciones demasiado genéricas
-    const genericIndicators = [
-      address === 'puerto rico',
-      address === 'puerto rico, usa',
-      address.includes('puerto rico') && address.split(',').length <= 2,
-      !municipio || municipio === '',
-      !barrio || barrio === ''
-    ]
-    
-    return genericIndicators.some(indicator => indicator)
-  }
+      // Limpiar el campo de búsqueda y poner la dirección seleccionada
+      if (searchInputRef.current) {
+        searchInputRef.current.value = suggestion.title || ''
+      }
 
-  const checkAddressDiscrepancies = () => {
-    if (!realAddressFromCoords) return false
-    
-    const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
-    const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
-    
-    const municipioMatch = realMunicipio === userMunicipio
-    const barrioMatch = realBarrio === userBarrio || realBarrio.includes(userBarrio) || userBarrio.includes(realBarrio)
-    
-    return !municipioMatch || (!barrioMatch && realBarrio && userBarrio)
-  }
-
-  const getDiscrepancyMessages = () => {
-    if (!realAddressFromCoords) return []
-    
-    const messages = []
-    const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
-    const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
-    
-    if (realMunicipio && userMunicipio && realMunicipio !== userMunicipio) {
-      messages.push(`Municipio: Google Maps dice "${realAddressFromCoords.municipio}", pero escribiste "${addressData.municipio}"`)
+      // También actualizar addressData para mantener sincronización con el padre
+      const newData = {
+        ...watchedFields,
+        linea1: suggestion.address?.street || suggestion.title || watchedFields.linea1 || '',
+        barrio: suggestion.address?.district || watchedFields.barrio || '',
+        municipio: suggestion.address?.city || watchedFields.municipio || ''
+      }
+      
+      setAddressData(newData)
+      
+    } catch (error) {
+      console.error('❌ HERE - Error al seleccionar sugerencia:', error)
+    } finally {
+      setIsSelectingAddress(false)
     }
-    
-    if (realBarrio && userBarrio && !realBarrio.includes(userBarrio) && !userBarrio.includes(realBarrio)) {
-      messages.push(`Barrio: Google Maps dice "${realAddressFromCoords.barrio}", pero escribiste "${addressData.barrio}"`)
-    }
-    
-    if (!realBarrio && userBarrio) {
-      messages.push(`Barrio: Escribiste "${addressData.barrio}" pero Google Maps no detecta un barrio específico en esta coordenada`)
-    }
-    
-    return messages
   }
 
+  // Función para hacer geocoding con HERE API usando fetch
+  const geocodeAddressWithFetch = async (address) => {
+    try {
+      const apiKey = import.meta.env.VITE_HERE_API_KEY
+      if (!apiKey) {
+        throw new Error('HERE API Key no configurada')
+      }
+
+      console.log('🔍 HERE - Iniciando geocoding con fetch:', address)
+
+      const encodedAddress = encodeURIComponent(`${address}, Puerto Rico`)
+      const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodedAddress}&apiKey=${apiKey}&in=countryCode:PRI&limit=1`
+
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`Error en geocoding: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('📍 HERE - Respuesta de geocoding:', data)
+
+      if (data.items && data.items.length > 0) {
+        const result = data.items[0]
+        const position = result.position
+        
+        if (position && position.lat && position.lng) {
+          const location = { lat: position.lat, lng: position.lng }
+          
+          // Actualizar ubicación
+          onLocationSelect(location)
+          
+          // Hacer reverse geocoding para obtener la dirección "real"
+          await reverseGeocodeWithFetch(location)
+          
+          console.log('✅ HERE - Geocoding completado:', location)
+          return location
+        }
+      }
+      
+      throw new Error('No se encontraron resultados en geocoding')
+    } catch (error) {
+      console.error('❌ HERE - Error en geocoding:', error)
+      throw error
+    }
+  }
+
+  // Función para hacer reverse geocoding
+  const reverseGeocodeWithFetch = async (location) => {
+    try {
+      const apiKey = import.meta.env.VITE_HERE_API_KEY
+      if (!apiKey) {
+        throw new Error('HERE API Key no configurada')
+      }
+
+      console.log('🔄 HERE - Iniciando reverse geocoding:', location)
+      
+      const url = `https://revgeocode.search.hereapi.com/v1/revgeocode?at=${location.lat},${location.lng}&lang=es&apiKey=${apiKey}`
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`Error en reverse geocoding: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('🗺️ HERE - Respuesta de reverse geocoding:', data)
+
+      if (data.items && data.items.length > 0) {
+        const result = data.items[0]
+        const address = result.address
+        
+        const realAddressData = {
+          coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+          direccion_completa: result.title || 'Dirección no disponible',
+          municipio: address?.city || '',
+          barrio: address?.district || address?.subdistrict || '',
+          componentes: address
+        }
+        
+        onRealAddressUpdate?.(realAddressData)
+        console.log('🌍 HERE - DIRECCIÓN REAL de las coordenadas:', realAddressData)
+      }
+    } catch (error) {
+      console.error('❌ HERE - Error en reverse geocoding:', error)
+    }
+  }
+
+  // Función para validar coordenadas
   const validateCoordinates = (coordString) => {
     // Limpiar el string
     const cleaned = coordString.trim().replace(/\s+/g, ' ')
@@ -700,303 +476,237 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
     
     return { 
       valid: false, 
-      error: 'Formato inválido. Usa: "18.219107, -66.225394" o "18.219107 -66.225394"' 
+      error: 'Formato inválido. Usa: "18.219107, -66.225394"' 
     }
   }
 
-  const handleCoordinatesInput = (value) => {
+  // Función para manejar input de coordenadas manuales
+  const handleCoordinatesInput = async (value) => {
     setManualCoordinates(value)
-    setCoordinatesError('')
-    setCoordinatesData(null)
     
-    if (value.length < 5) return
-    
+    if (!value.trim()) {
+      setCoordinatesError('')
+      setCoordinatesData(null)
+      return
+    }
+
     const validation = validateCoordinates(value)
     
     if (!validation.valid) {
       setCoordinatesError(validation.error)
+      setCoordinatesData(null)
+      return
+    }
+
+    setCoordinatesError('')
+    setIsValidatingCoords(true)
+
+    try {
+      const { lat, lng } = validation
+
+      const location = { lat, lng }
+      
+      // Actualizar ubicación en el mapa
+      onLocationSelect(location)
+      
+      // Hacer reverse geocoding
+      await reverseGeocodeWithFetch(location)
+      
+      // Crear datos detallados de coordenadas
+      const detailedCoordinatesData = {
+        coordinates: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        precision: { level: 'Manual', description: 'Coordenadas ingresadas manualmente' },
+        lat: lat,
+        lng: lng
+      }
+      setCoordinatesData(detailedCoordinatesData)
+      onCoordinatesDataUpdate?.(detailedCoordinatesData)
+      
+      console.log('✅ HERE - Coordenadas validadas:', location)
+      
+    } catch (error) {
+      console.error('❌ HERE - Error validando coordenadas:', error)
+      setCoordinatesError('Error al validar coordenadas')
+    } finally {
+      setIsValidatingCoords(false)
+    }
+  }
+
+  // Función para geocodificar la dirección del formulario manualmente
+  // const geocodeFormAddress = async () => {
+  //   const currentData = watchedFields
+  //   const fullAddressParts = []
+  //   
+  //   if (currentData.linea1) fullAddressParts.push(currentData.linea1)
+  //   if (currentData.linea2) fullAddressParts.push(currentData.linea2)
+  //   if (currentData.barrio) fullAddressParts.push(currentData.barrio)
+  //   if (currentData.municipio) fullAddressParts.push(currentData.municipio + ', PR')
+
+  //   if (fullAddressParts.length === 0) {
+  //     setSearchStatus({ 
+  //       type: 'warning', 
+  //       message: '⚠️ Por favor llena al menos la dirección línea 1 para buscar en el mapa' 
+  //     })
+  //     return
+  //   }
+
+  //   const fullAddress = fullAddressParts.join(', ')
+  //   const processedAddress = preprocessPuertoRicanAddress(fullAddress)
+
+  //   console.log('🔍 HERE - Geocodificando dirección del formulario:', fullAddress)
+  //   console.log('🔄 HERE - Dirección procesada para HERE Maps:', processedAddress)
+
+  //   setSearchStatus({ 
+  //     type: 'info', 
+  //     message: '🔍 Buscando tu dirección en el mapa...' 
+  //   })
+
+  //   try {
+  //     await geocodeAddressWithFetch(processedAddress)
+  //     setSearchStatus({ 
+  //       type: 'success', 
+  //       message: '✅ Dirección encontrada y ubicada en el mapa' 
+  //     })
+  //   } catch (error) {
+  //     console.error('❌ HERE - Error en geocodificación del formulario:', error)
+  //     setSearchStatus({ 
+  //       type: 'error', 
+  //       message: '❌ No se pudo encontrar esta dirección en el mapa' 
+  //     })
+  //   }
+  // }
+
+  // Función para manejar coordenadas manuales con Google Maps (deshabilitada - se usa handleCoordinatesInput)
+  /*
+  const handleManualCoordinatesSubmit = async () => {
+    const coords = parseCoordinates(manualCoordinates)
+    
+    if (!coords) {
+      setCoordinatesError('Formato de coordenadas inválido. Use: "lat, lng" o "lat,lng"')
+      return
+    }
+
+    setCoordinatesError('')
+    setIsValidatingCoords(true)
+    
+    if (!window.google || !window.google.maps) {
+      setCoordinatesError('Google Maps API no está cargada')
+      setIsValidatingCoords(false)
       return
     }
     
-    // Si es válido, hacer geocodificación inversa
-    if (window.google && window.google.maps) {
-      setIsValidatingCoords(true)
-      setCoordinatesError('')
-      
-      const geocoder = new window.google.maps.Geocoder()
-      const location = { lat: validation.lat, lng: validation.lng }
-      
-      geocoder.geocode({ 
-        location,
-        componentRestrictions: { country: 'pr' }
-      }, (results, status) => {
-        setIsValidatingCoords(false)
-        
-        if (status === 'OK' && results[0]) {
-          const result = results[0]
-          const components = result.address_components
-          
-          // Extraer información detallada
-          const municipio = components.find(c => 
-            c.types.includes('administrative_area_level_2')
-          )?.long_name || ''
-          
-          const barrio = components.find(c => 
-            c.types.includes('sublocality_level_1') || 
-            c.types.includes('neighborhood') ||
-            c.types.includes('sublocality') ||
-            c.types.includes('locality')
-          )?.long_name || ''
-          
-          const route = components.find(c => 
-            c.types.includes('route')
-          )?.long_name || ''
-          
-          const streetNumber = components.find(c => 
-            c.types.includes('street_number')
-          )?.long_name || ''
-          
-          const detailedData = {
-            coordinates: `${validation.lat.toFixed(6)}, ${validation.lng.toFixed(6)}`,
-            formatted_address: result.formatted_address,
-            municipio,
-            barrio,
-            route,
-            street_number: streetNumber,
-            place_id: result.place_id,
-            location_type: result.geometry.location_type,
-            components: components.map(c => ({
-              name: c.long_name,
-              short_name: c.short_name,
-              types: c.types
-            })),
-            precision: getPrecisionLevel(result.geometry.location_type),
-            lat: validation.lat,
-            lng: validation.lng
-          }
-          
-          setCoordinatesData(detailedData)
-          
-          // IMPORTANTE: También actualizar realAddressFromCoords para mostrar la dirección real
-          const realAddressData = {
-            coordenadas: `${validation.lat.toFixed(6)}, ${validation.lng.toFixed(6)}`,
-            direccion_completa: result.formatted_address,
-            municipio,
-            barrio,
-            componentes: components.map(c => ({
-              nombre: c.long_name,
-              tipos: c.types
-            }))
-          }
-          setRealAddressFromCoords(realAddressData)
-          
-          // Actualizar el mapa con las nuevas coordenadas
-          onLocationSelect({ lat: validation.lat, lng: validation.lng })
-          
-          console.log('📍 Datos de coordenadas manuales:', detailedData)
-          console.log('🌍 DIRECCIÓN REAL actualizada desde coordenadas manuales:', realAddressData)
-        } else {
-          setCoordinatesError('No se pudo obtener información de estas coordenadas')
-        }
-      })
-    }
-  }
-
-  const getPrecisionLevel = (locationType) => {
-    switch (locationType) {
-      case 'ROOFTOP': return { level: 'Muy Alta', description: 'Ubicación exacta del edificio' }
-      case 'RANGE_INTERPOLATED': return { level: 'Alta', description: 'Interpolación entre direcciones conocidas' }
-      case 'GEOMETRIC_CENTER': return { level: 'Media', description: 'Centro geométrico del área' }
-      case 'APPROXIMATE': return { level: 'Baja', description: 'Ubicación aproximada' }
-      default: return { level: 'Desconocida', description: 'Nivel de precisión no determinado' }
-    }
-  }
-
-  const findNearbyLocations = (data) => {
-    if (!window.google || !window.google.maps) return
-
     const geocoder = new window.google.maps.Geocoder()
     
-    // Intentar búsquedas progresivamente más amplias
-    const searchQueries = [
-      // Búsqueda específica con toda la información
-      `${data.linea1}, ${data.barrio}, ${data.municipio}, PR`,
-      // Sin línea específica, solo barrio y municipio
-      `${data.barrio}, ${data.municipio}, PR`,
-      // Solo municipio
-      `${data.municipio}, Puerto Rico`,
-      // Municipio y términos relacionados
-      `centro ${data.municipio}, Puerto Rico`,
-      `pueblo ${data.municipio}, Puerto Rico`
-    ].filter(query => query.trim() !== ', PR') // Filtrar queries vacías
-
-    console.log('🔍 Buscando ubicaciones cercanas con queries:', searchQueries)
-
-    const performSearch = (queryIndex = 0) => {
-      if (queryIndex >= searchQueries.length) {
-        // No se encontró nada, mostrar sugerencias generales
-        setDirectGeocodingWarning({
-          type: 'no_results',
-          message: 'No se pudo encontrar la ubicación específica',
-          suggestions: [
-            `Verifica la ortografía del municipio: "${data.municipio}"`,
-            `Intenta buscar solo el centro del municipio`,
-            `Usa puntos de referencia conocidos (escuelas, plazas, iglesias)`,
-            `Para direcciones rurales, incluye la carretera: "Carr 123" o "PR-456"`,
-            `Si conoces las coordenadas exactas, úsalas directamente`
-          ]
+    try {
+      const result = await new Promise((resolve, reject) => {
+        geocoder.geocode({ 
+          location: { lat: coords.lat, lng: coords.lng } 
+        }, (results, status) => {
+          if (status === 'OK') {
+            resolve(results[0])
+          } else {
+            reject(new Error(`Error de geocodificación: ${status}`))
+          }
         })
-        return
+      })
+
+      const addressData = {
+        coordinates: { lat: coords.lat, lng: coords.lng },
+        address: result.formatted_address,
+        components: result.address_components,
+        placeId: result.place_id,
+        source: 'manual_coordinates'
       }
 
-      const currentQuery = searchQueries[queryIndex]
-      console.log(`🔍 Intentando búsqueda ${queryIndex + 1}/${searchQueries.length}: "${currentQuery}"`)
-
-      geocoder.geocode({ 
-        address: currentQuery,
-        componentRestrictions: { country: 'pr' }
-      }, (results, status) => {
-        if (status === 'OK' && results && results.length > 0) {
-          // Encontramos resultados
-          const nearbyLocations = results.slice(0, 3).map(result => ({
-            address: result.formatted_address,
-            location: {
-              lat: result.geometry.location.lat(),
-              lng: result.geometry.location.lng()
-            },
-            placeId: result.place_id,
-            components: result.address_components
-          }))
-
-          setDirectGeocodingWarning({
-            type: 'nearby_suggestions',
-            message: queryIndex === 0 ? 
-              'Se encontraron ubicaciones similares. ¿Es alguna de estas?' :
-              `No se encontró la dirección exacta, pero hay ubicaciones en ${data.municipio}:`,
-            nearbyLocations,
-            originalQuery: currentQuery,
-            searchLevel: queryIndex + 1
-          })
-
-          console.log('✅ Ubicaciones cercanas encontradas:', nearbyLocations)
-        } else {
-          // Esta búsqueda falló, intentar la siguiente
-          performSearch(queryIndex + 1)
-        }
-      })
-    }
-
-    performSearch()
-  }
-
-  const selectNearbyLocation = (location, address) => {
-    onLocationSelect(location)
-    setDirectGeocodingWarning(null)
-    setSearchStatus({ 
-      type: 'success', 
-      message: `✅ Ubicación seleccionada | ${formatAddressForDisplay(addressData)}` 
-    })
-    console.log('📍 Usuario seleccionó ubicación cercana:', { location, address })
-  }
-
-  const onSubmit = (data) => {
-    setAddressData(data)
-    setSubmittedData({
-      ...data,
-      timestamp: new Date().toLocaleString()
-    })
-    setSearchStatus({ 
-      type: 'success', 
-      message: `✅ Formulario enviado | ${formatAddressForDisplay(data)}` 
-    })
-    console.log('Datos del formulario:', data)
-
-    // Si no se ha seleccionado una sugerencia ni se han ingresado coordenadas manuales,
-    // intentar geocodificación directa de la dirección del formulario
-    if (!hasSelectedSuggestion && !manualCoordinates && window.google && window.google.maps) {
-      const geocoder = new window.google.maps.Geocoder()
-
-      // Construir la dirección completa del formulario
-      const fullAddressParts = []
-      if (data.linea1) fullAddressParts.push(data.linea1)
-      if (data.linea2) fullAddressParts.push(data.linea2)
-      if (data.barrio) fullAddressParts.push(data.barrio)
-      if (data.municipio) fullAddressParts.push(data.municipio + ', PR')
-
-      const fullAddress = fullAddressParts.join(', ')
-      const processedAddress = preprocessPuertoRicanAddress(fullAddress)
-
-      console.log('🔍 Intentando geocodificación directa de:', fullAddress)
-      console.log('🔄 Dirección procesada para Google Maps:', processedAddress)
-
-      geocoder.geocode({ 
-        address: processedAddress,
-        componentRestrictions: { country: 'pr' }
-      }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          const location = results[0].geometry.location
-          const addressResult = results[0]
-
-          // Verificar si la dirección encontrada coincide con lo que el usuario ingresó
-          const realMunicipio = addressResult.address_components.find(c =>
-            c.types.includes('administrative_area_level_2')
-          )?.long_name || ''
-
-          const realBarrio = addressResult.address_components.find(c =>
-            c.types.includes('sublocality_level_1') ||
-            c.types.includes('neighborhood') ||
-            c.types.includes('sublocality') ||
-            c.types.includes('locality')
-          )?.long_name || ''
-
-          const municipioMatches = realMunicipio.toLowerCase() === (data.municipio || '').toLowerCase()
-          const barrioMatches = realBarrio.toLowerCase() === (data.barrio || '').toLowerCase() ||
-                               realBarrio.includes(data.barrio || '') ||
-                               (data.barrio || '').includes(realBarrio)
-
-          // Detectar si es una dirección rural que Google Maps interpretó incorrectamente
-          const isRuralAddress = /\b(?:carr|carretera|km|kilómetro|pr-\d+)/i.test(fullAddress)
-          const foundAddressSeemsDifferent = !addressResult.formatted_address.toLowerCase().includes('km') && 
-                                           !addressResult.formatted_address.toLowerCase().includes('carretera') &&
-                                           isRuralAddress
-
-          if (!municipioMatches || !barrioMatches || foundAddressSeemsDifferent) {
-            const warningMessages = []
-            if (!municipioMatches) {
-              warningMessages.push(`Municipio: Google Maps encontró "${realMunicipio}" pero escribiste "${data.municipio}"`)
-            }
-            if (!barrioMatches && data.barrio) {
-              warningMessages.push(`Barrio: Google Maps encontró "${realBarrio}" pero escribiste "${data.barrio}"`)
-            }
-            if (foundAddressSeemsDifferent) {
-              warningMessages.push(`⚠️ Dirección rural: Google Maps encontró "${addressResult.formatted_address}" pero escribiste una dirección con KM/Carretera. Esto puede indicar que Google Maps no interpretó correctamente la ubicación exacta en la carretera.`)
-            }
-
-            setDirectGeocodingWarning({
-              type: 'discrepancy',
-              messages: warningMessages,
-              foundLocation: {
-                lat: location.lat(),
-                lng: location.lng()
-              },
-              foundAddress: addressResult.formatted_address
-            })
-
-            console.log('⚠️ Discrepancias encontradas en geocodificación directa:', warningMessages)
-          } else {
-            // La dirección coincide, actualizar el mapa
-            onLocationSelect({ lat: location.lat(), lng: location.lng() })
-            setDirectGeocodingWarning(null)
-            console.log('✅ Geocodificación directa exitosa, ubicación actualizada')
-          }
-        } else {
-          // No se encontró la dirección exacta, buscar ubicaciones cercanas
-          console.log('❌ No se pudo geocodificar la dirección del formulario, buscando alternativas...')
-          findNearbyLocations(data)
-        }
-      })
+      setCoordinatesData(addressData)
+      // setRealAddressFromCoords(addressData)
+      
+      // Llamar callbacks para notificar al padre
+      // if (onAddressSelect) {
+      //   onAddressSelect(addressData)
+      // }
+      // if (onDetailsUpdate) {
+      //   onDetailsUpdate({
+      //     submittedData: null,
+      //     realAddressFromCoords: addressData,
+      //     coordinatesData: addressData,
+      //     coordinatesError: '',
+      //     directGeocodingWarning: null
+      //   })
+      // }
+      
+    } catch (error) {
+      setCoordinatesError(`Error: ${error.message}`)
+    } finally {
+      setIsValidatingCoords(false)
     }
   }
+  */
+
+  // Función para manejar envío del formulario
+  const onSubmit = async (data) => {
+    try {
+      console.log('📝 HERE - Datos del formulario enviados:', data)
+      
+      setAddressData(data)
+      // setSubmittedData({
+      //   ...data,
+      //   timestamp: new Date().toLocaleString()
+      // })
+      setSearchStatus({ 
+        type: 'success', 
+        message: `✅ Formulario enviado | ${formatAddressForDisplay(data)}` 
+      })
+      
+      // Si no se ha seleccionado una sugerencia ni se han ingresado coordenadas manuales,
+      // intentar geocodificación directa de la dirección del formulario
+      if (!hasSelectedSuggestion && !manualCoordinates) {
+        const fullAddressParts = []
+        if (data.linea1) fullAddressParts.push(data.linea1)
+        if (data.linea2) fullAddressParts.push(data.linea2)
+        if (data.barrio) fullAddressParts.push(data.barrio)
+        if (data.municipio) fullAddressParts.push(data.municipio + ', PR')
+
+        const fullAddress = fullAddressParts.join(', ')
+        const processedAddress = preprocessPuertoRicanAddress(fullAddress)
+
+        console.log('🔍 HERE - Intentando geocodificación directa de:', fullAddress)
+        console.log('🔄 HERE - Dirección procesada para HERE Maps:', processedAddress)
+
+        try {
+          await geocodeAddressWithFetch(processedAddress)
+        } catch {
+          console.log('❌ HERE - No se pudo geocodificar la dirección del formulario')
+        }
+      }
+      
+      // Llamar callbacks para notificar al padre
+      // if (onDetailsUpdate) {
+      //   onDetailsUpdate({
+      //     submittedData: {
+      //       ...data,
+      //       timestamp: new Date().toLocaleString()
+      //     },
+      //     realAddressFromCoords,
+      //     coordinatesData,
+      //     coordinatesError,
+      //     directGeocodingWarning
+      //   })
+      // }
+      
+    } catch (error) {
+      console.error('❌ Google - Error en envío:', error)
+    }
+  }
+
+  // Actualizar datos cuando cambien los campos (con debounce para evitar bucles)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setAddressData(watchedFields)
+    }, 100) // Pequeño delay para evitar bucles
+
+    return () => clearTimeout(timeoutId)
+  }, [watchedFields, setAddressData])
 
   return (
     <div className="address-form">
@@ -1006,7 +716,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
         <div className="form-group">
           <label htmlFor="busqueda">Buscar Ubicación</label>
           <small style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.5rem', display: 'block' }}>
-            Busca direcciones urbanas, rurales (KM), barrios, sectores, negocios, puntos de referencia
+            Busca direcciones urbanas, rurales (KM), barrios, sectores, negocios, puntos de referencia con HERE Maps
           </small>
           <div className="search-container">
             <input
@@ -1019,7 +729,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
             />
             {isSearching && (
               <div className="search-loading">
-                <span>Buscando direcciones...</span>
+                <span>Buscando direcciones con HERE Maps...</span>
               </div>
             )}
             {isSelectingAddress && (
@@ -1037,7 +747,7 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
                 {suggestions.map((suggestion) => (
                   <li
                     key={suggestion.place_id}
-                    onClick={() => selectAddress(suggestion.place_id, currentQueryRef.current)}
+                    onClick={() => selectAddress(suggestion.place_id)}
                     className="suggestion-item"
                   >
                     {suggestion.description}
@@ -1152,423 +862,121 @@ function GoogleAddressForm({ addressData, setAddressData, onLocationSelect }) {
           />
         </div>
 
-        <button type="submit" className="submit-btn">
-          Confirmar Dirección
-        </button>
+        <div className="form-actions">
+          <button 
+            type="submit" 
+            className="submit-btn"
+            style={{ width: '100%' }}
+          >
+            🔍 Buscar Dirección
+          </button>
+        </div>
       </form>
 
-      {submittedData && (
-        <details className="form-result">
-          <summary><h3>✅ Datos Enviados</h3></summary>
-          <div className="result-grid">
-            <div className="result-item">
-              <label>Dirección Línea 1:</label>
-              <span>{submittedData.linea1 || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Dirección Línea 2:</label>
-              <span>{submittedData.linea2 || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Municipio:</label>
-              <span>{submittedData.municipio || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Barrio/Sector:</label>
-              <span>{submittedData.barrio || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Descripción:</label>
-              <span>{submittedData.descripcion || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Enviado el:</label>
-              <span>{submittedData.timestamp}</span>
-            </div>
-          </div>
-        </details>
-      )}
-
-      {realAddressFromCoords && (
-        <details className="address-validation">
-          <summary><h4>🔍 Validación de Coordenadas</h4></summary>
-          <div className="validation-content">
-            <div className="validation-info">
-              <p><strong>Coordenadas seleccionadas:</strong> {realAddressFromCoords.coordenadas}</p>
-            </div>
-            
-            <div className="validation-comparison">
-              <div className="real-address">
-                <h5>📍 Dirección REAL de Google Maps:</h5>
-                <p className="address-text">{realAddressFromCoords.direccion_completa}</p>
-                <div className="address-details">
-                  <p><strong>Municipio:</strong> {realAddressFromCoords.municipio || 'No detectado'}</p>
-                  <p><strong>Barrio:</strong> {realAddressFromCoords.barrio || 'No detectado'}</p>
-                </div>
-                
-                {isGenericAddress() && (
-                  <div className="generic-address-warning">
-                    <h6>ℹ️ Información limitada disponible</h6>
-                    <p>Esta ubicación rural tiene datos limitados en Google Maps. El pin está colocado correctamente en las coordenadas <strong>{realAddressFromCoords.coordenadas}</strong>, pero Google Maps no puede proporcionar detalles específicos de municipio/barrio para esta zona.</p>
-                    <div className="suggestions">
-                      <strong>Esto es normal para direcciones rurales:</strong>
-                      <ul>
-                        <li>📍 El mapa y coordenadas son correctos</li>
-                        <li>🗺️ Google Maps tiene datos limitados para esta área rural</li>
-                        <li>✅ Puedes usar esta ubicación con confianza</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="user-address">
-                <h5>✏️ Tu dirección ingresada:</h5>
-                <p className="address-text">{formatUserAddress()}</p>
-                <div className="address-details">
-                  <p><strong>Municipio:</strong> {addressData.municipio || 'No especificado'}</p>
-                  <p><strong>Barrio:</strong> {addressData.barrio || 'No especificado'}</p>
-                </div>
-              </div>
-            </div>
-
-            {checkAddressDiscrepancies() && (
-              <div className="validation-warning">
-                <h5>⚠️ Posibles discrepancias detectadas:</h5>
-                <ul>
-                  {getDiscrepancyMessages().map((msg, index) => (
-                    <li key={index}>{msg}</li>
-                  ))}
-                </ul>
-                <p><small>
-                  💡 Verifica si el barrio/municipio que escribiste realmente corresponde a esta ubicación.
-                </small></p>
-              </div>
-            )}
-          </div>
-        </details>
-      )}
-
-      {coordinatesData && (
-        <div className="coordinates-details">
-          <h4>📍 Información Detallada de Coordenadas</h4>
-          <div className="coordinates-content">
-            
-            <div className="coordinates-basic">
-              <h5>📌 Información Básica</h5>
-              <div className="coordinates-grid">
-                <div className="coord-item">
-                  <label>Coordenadas:</label>
-                  <span className="coord-value">{coordinatesData.coordinates}</span>
-                </div>
-                <div className="coord-item">
-                  <label>Precisión:</label>
-                  <span className={`precision-level ${coordinatesData.precision.level.toLowerCase().replace(' ', '-')}`}>
-                    {coordinatesData.precision.level}
-                  </span>
-                </div>
-                <div className="coord-item">
-                  <label>Descripción:</label>
-                  <span>{coordinatesData.precision.description}</span>
-                </div>
-                <div className="coord-item">
-                  <label>Place ID:</label>
-                  <span className="place-id">{coordinatesData.place_id}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="coordinates-address">
-              <h5>🏠 Dirección Encontrada</h5>
-              <div className="address-found">
-                <p className="main-address">{coordinatesData.formatted_address}</p>
-                <div className="address-breakdown">
-                  {coordinatesData.street_number && (
-                    <div className="addr-component">
-                      <strong>Número:</strong> {coordinatesData.street_number}
-                    </div>
-                  )}
-                  {coordinatesData.route && (
-                    <div className="addr-component">
-                      <strong>Calle/Carretera:</strong> {coordinatesData.route}
-                    </div>
-                  )}
-                  {coordinatesData.barrio && (
-                    <div className="addr-component">
-                      <strong>Barrio:</strong> {coordinatesData.barrio}
-                    </div>
-                  )}
-                  {coordinatesData.municipio && (
-                    <div className="addr-component">
-                      <strong>Municipio:</strong> {coordinatesData.municipio}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="coordinates-technical">
-              <h5>🔧 Información Técnica</h5>
-              <div className="technical-grid">
-                <div className="tech-item">
-                  <label>Latitud:</label>
-                  <span>{coordinatesData.lat.toFixed(8)}°</span>
-                </div>
-                <div className="tech-item">
-                  <label>Longitud:</label>
-                  <span>{coordinatesData.lng.toFixed(8)}°</span>
-                </div>
-                <div className="tech-item">
-                  <label>Tipo de Ubicación:</label>
-                  <span>{coordinatesData.location_type}</span>
-                </div>
-                <div className="tech-item">
-                  <label>Componentes:</label>
-                  <span>{coordinatesData.components.length} elementos detectados</span>
-                </div>
-              </div>
-            </div>
-
-            <details className="coordinates-components">
-              <summary>🔍 Ver Todos los Componentes Detectados</summary>
-              <div className="components-list">
-                {coordinatesData.components.map((component, index) => (
-                  <div key={index} className="component-item">
-                    <div className="component-name">{component.name}</div>
-                    <div className="component-short">({component.short_name})</div>
-                    <div className="component-types">
-                      {component.types.map((type, i) => (
-                        <span key={i} className="component-type">{type}</span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-
-          </div>
-        </div>
-      )}
-
-      {directGeocodingWarning && (
-        <div className={`geocoding-warning ${directGeocodingWarning.type}`}>
-          {directGeocodingWarning.type === 'discrepancy' && (
-            <>
-              <h4>⚠️ Discrepancias Detectadas</h4>
-              <div className="warning-content">
-                <p>La ubicación encontrada no coincide exactamente con los datos ingresados:</p>
-                <ul>
-                  {directGeocodingWarning.messages.map((msg, index) => (
-                    <li key={index}>{msg}</li>
-                  ))}
-                </ul>
-                <div className="warning-actions">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      onLocationSelect(directGeocodingWarning.foundLocation)
-                      setDirectGeocodingWarning(null)
-                      setSearchStatus({ 
-                        type: 'success', 
-                        message: `✅ Ubicación aceptada | ${formatAddressForDisplay(addressData)}` 
-                      })
-                    }}
-                    className="accept-btn"
-                  >
-                    ✅ Usar esta ubicación de todas formas
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setDirectGeocodingWarning(null)}
-                    className="dismiss-btn"
-                  >
-                    ❌ Revisar mi dirección
-                  </button>
-                </div>
-                <div className="found-address">
-                  <strong>Dirección encontrada:</strong> {directGeocodingWarning.foundAddress}
-                </div>
-              </div>
-            </>
-          )}
-
-          {directGeocodingWarning.type === 'nearby_suggestions' && (
-            <>
-              <h4>📍 Ubicaciones Sugeridas</h4>
-              <div className="warning-content">
-                <p>{directGeocodingWarning.message}</p>
-                <div className="nearby-locations">
-                  {directGeocodingWarning.nearbyLocations.map((location, index) => (
-                    <div key={index} className="nearby-location-item">
-                      <div className="location-address">{location.address}</div>
-                      <button
-                        type="button"
-                        onClick={() => selectNearbyLocation(location.location, location.address)}
-                        className="select-location-btn"
-                      >
-                        📍 Usar esta ubicación
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="search-tips">
-                  <h5>Tips para mejorar tu búsqueda:</h5>
-                  <ul>
-                    <li>Usa el <strong>buscador automático</strong> en la parte superior para seleccionar sugerencias</li>
-                    <li>Intenta con <strong>puntos de referencia</strong> conocidos (escuelas, plazas, iglesias)</li>
-                    <li>Para direcciones rurales, incluye la <strong>carretera</strong>: "Carr 123" o "PR-456"</li>
-                    <li>Busca <strong>negocios cercanos</strong> a tu dirección</li>
-                  </ul>
-                </div>
-                <div className="warning-actions">
-                  <button 
-                    type="button"
-                    onClick={() => setDirectGeocodingWarning(null)}
-                    className="dismiss-btn"
-                  >
-                    ❌ Cerrar y revisar mi dirección
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {directGeocodingWarning.type === 'no_results' && (
-            <>
-              <h4>🔍 No se encontró la ubicación</h4>
-              <div className="warning-content">
-                <p>{directGeocodingWarning.message}</p>
-                <div className="search-suggestions">
-                  <h5>🎯 Sugerencias para encontrar tu ubicación:</h5>
-                  <ul>
-                    {directGeocodingWarning.suggestions.map((suggestion, index) => (
-                      <li key={index}>{suggestion}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="alternative-methods">
-                  <h5>🔧 Métodos alternativos:</h5>
-                  <ul>
-                    <li><strong>Usa el buscador automático</strong> arriba para encontrar sugerencias de Google</li>
-                    <li><strong>Ingresa coordenadas directas</strong> si las tienes disponibles</li>
-                    <li><strong>Busca un lugar cercano conocido</strong> y selecciónalo primero</li>
-                  </ul>
-                </div>
-                <div className="warning-actions">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setDirectGeocodingWarning(null)
-                      if (searchInputRef.current) {
-                        searchInputRef.current.focus()
-                      }
-                    }}
-                    className="try-search-btn"
-                  >
-                    🔍 Intentar con el buscador automático
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setDirectGeocodingWarning(null)}
-                    className="dismiss-btn"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {directGeocodingWarning.type === 'not_found' && (
-            <>
-              <h4>Ubicación no encontrada</h4>
-              <div className="warning-content">
-                <p>{directGeocodingWarning.message}</p>
-                <div className="alternative-actions">
-                  <h5>🔄 ¿Qué puedes hacer?</h5>
-                  <ul>
-                    <li>Usa el <strong>buscador automático</strong> para ver sugerencias de Google Maps</li>
-                    <li>Verifica la <strong>ortografía</strong> del municipio y barrio</li>
-                    <li>Intenta buscar solo el <strong>centro del municipio</strong> primero</li>
-                    <li>Usa <strong>coordenadas exactas</strong> si las tienes</li>
-                  </ul>
-                </div>
-                <div className="warning-actions">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setDirectGeocodingWarning(null)
-                      if (searchInputRef.current) {
-                        searchInputRef.current.focus()
-                      }
-                    }}
-                    className="try-search-btn"
-                  >
-                    Usar buscador automático
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setDirectGeocodingWarning(null)}
-                    className="dismiss-btn"
-                  >
-                    ❌ Cerrar
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       <details className="address-help">
-        <summary><h4>¿Cómo obtener una dirección completa en Puerto Rico?</h4></summary>
+        <summary><h4>📋 Ejemplos de Direcciones de Puerto Rico</h4></summary>
         <div className="help-content">
           <div className="help-section">
-            <h5>✅ Información Necesaria:</h5>
-            <ul>
-              <li><strong>Línea 1:</strong> Dirección principal
-                <ul style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}>
-                  <li>📍 <strong>Urbana:</strong> 123 Calle Principal</li>
-                  <li>🛣️ <strong>Rural:</strong> KM 15.2 Carr. 123, PR-456 KM 8.5</li>
-                </ul>
-              </li>
-              <li><strong>Línea 2:</strong> Apartamento, suite, etc. (opcional)</li>
-              <li><strong>Municipio:</strong> Uno de los 78 municipios de PR</li>
-              <li><strong>Barrio/Sector:</strong> Subdivisión del municipio</li>
-              <li><strong>Código Postal:</strong> 00xxx (se agrega automáticamente por correo)</li>
-            </ul>
+            <h5>🏙️ Direcciones Urbanas (Copia y pega en búsqueda):</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <code>Plaza de Armas Caguas</code>
+              </div>
+              <div className="example-item">
+                <code>Escuela José de Diego Cayey</code>
+              </div>
+              <div className="example-item">
+                <code>Centro de Salud Comerío</code>
+              </div>
+              <div className="example-item">
+                <code>Iglesia San José Cidra</code>
+              </div>
+            </div>
           </div>
           
           <div className="help-section">
-            <h5>🔍 Tips de Búsqueda:</h5>
-            <ul>
-              <li><strong>Zonas Urbanas:</strong> "Calle Principal Bayamón", "Pueblo Cayey"</li>
-              <li><strong>Zonas Rurales:</strong> "KM 15 Carr 123", "Carretera 456 Caguas"</li>
-              <li>Usa <strong>puntos de referencia</strong> (Ej: "Escuela Central", "Plaza del Mercado")</li>
-              <li>Busca <strong>negocios conocidos</strong> cerca de tu dirección</li>
-              <li>Si no encuentra tu ubicación exacta, selecciona el <strong>punto más cercano</strong></li>
-            </ul>
+            <h5>🛣️ Direcciones Rurales con Carreteras:</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <strong>Carreteras Estatales:</strong><br />
+                <code>PR-123 KM 15.2, Ciales</code><br />
+                <code>PR-156 KM 32.1, Comerío</code><br />
+                <code>PR-152 KM 18.5, Barranquitas</code>
+              </div>
+              <div className="example-item">
+                <strong>Carreteras Municipales:</strong><br />
+                <code>Carr 156 KM 8.5, Bo. Naranjo, Comerío</code><br />
+                <code>Carretera 162 KM 18.5, Bo. Juan Asencio, Aguas Buenas</code><br />
+                <code>KM 41.2 Carr 143, Bo. Helechal, Barranquitas</code>
+              </div>
+            </div>
           </div>
 
           <div className="help-section">
-            <h5>🌍 Coordenadas Directas:</h5>
-            <ul>
-              <li><strong>Formato aceptado:</strong> "18.219107, -66.225394"</li>
-              <li><strong>Con espacios:</strong> "18.219107 -66.225394"</li>
-              <li><strong>Sin espacios:</strong> "18.219107,-66.225394"</li>
-              <li><strong>Validación automática</strong> para Puerto Rico (Lat: 17.8-18.7, Lng: -67.5 a -65.0)</li>
-              <li><strong>Información detallada</strong> con precisión y componentes de dirección</li>
-              <li>💡 Usa este método si tienes coordenadas exactas de GPS</li>
-            </ul>
+            <h5>🏔️ Zonas Montañosas (Cordillera Central):</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <code>KM 15.7 PR-511, Bo. Jájome Alto, Cayey</code>
+              </div>
+              <div className="example-item">
+                <code>Carr 156 KM 28.3, Bo. Damián Arriba, Comerío</code>
+              </div>
+              <div className="example-item">
+                <code>PR-152 KM 22.8, Bo. Farallón, Cidra</code>
+              </div>
+            </div>
           </div>
 
           <div className="help-section">
-            <h5>🛣️ Direcciones Rurales Comunes:</h5>
+            <h5>🌍 Coordenadas para Probar:</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <strong>Caguas rural:</strong><br />
+                <code>18.238889, -66.150000</code>
+              </div>
+              <div className="example-item">
+                <strong>Cayey montañoso:</strong><br />
+                <code>18.180000, -66.330000</code>
+              </div>
+              <div className="example-item">
+                <strong>Comerío rural:</strong><br />
+                <code>18.255000, -66.225000</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="help-section">
+            <h5>📝 Ejemplos de Formularios Completos:</h5>
+            <div className="form-examples">
+              <div className="form-example">
+                <strong>🏘️ Rural Típico:</strong><br />
+                <small>Línea 1:</small> <code>Carr 156 KM 8.5</code><br />
+                <small>Municipio:</small> <code>Comerío</code><br />
+                <small>Barrio:</small> <code>Naranjo</code>
+              </div>
+              <div className="form-example">
+                <strong>🛣️ Carretera Estatal:</strong><br />
+                <small>Línea 1:</small> <code>PR-152 KM 18.5</code><br />
+                <small>Municipio:</small> <code>Barranquitas</code><br />
+                <small>Barrio:</small> <em>(dejar vacío)</em>
+              </div>
+              <div className="form-example">
+                <strong>🏙️ Urbano:</strong><br />
+                <small>Línea 1:</small> <code>Calle Luna 45</code><br />
+                <small>Municipio:</small> <code>Ponce</code><br />
+                <small>Barrio:</small> <code>Playa</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="help-section">
+            <h5>� Tips de Uso:</h5>
             <ul>
-              <li><strong>KM + Carretera:</strong> "KM 15.2 Carr. 123"</li>
-              <li><strong>PR (Carretera Estatal):</strong> "PR-456 KM 8.5"</li>
-              <li><strong>Carretera + Municipio:</strong> "Carretera 789 Humacao"</li>
-              <li><strong>Ruta + Sector:</strong> "Ruta 321 Bo. Pueblo"</li>
+              <li>🔍 <strong>Búsqueda rápida:</strong> Copia cualquier ejemplo y pégalo en "Buscar Ubicación"</li>
+              <li>📍 <strong>Coordenadas:</strong> Pega las coordenadas en "Ingresar Coordenadas Directamente"</li>
+              <li>📝 <strong>Formulario manual:</strong> Llena los campos como se muestra en los ejemplos</li>
+              <li>🗺️ <strong>Variaciones:</strong> Puedes usar "KM 15.2 Carr 123" o "Carr 123 KM 15.2"</li>
+              <li>⚠️ <strong>Validación:</strong> El sistema te avisará si hay discrepancias en municipio/barrio</li>
             </ul>
           </div>
         </div>

@@ -8,41 +8,108 @@
 
 .here-title {
   text-align: center;
-  margin-bottom: 32px;
 }
 
-.here-content-flex {
-  display: flex;
-  flex-direction: row;
+/* Nuevo layout: Grid con formulario izquierda, mapa+detalles derecha */
+.here-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
   gap: 32px;
-  justify-content: center;
-  align-items: flex-start;
-  min-width: 0;
-  min-height: 1px;
+  align-items: start;
+  min-height: 500px;
 }
 
 .here-form-section {
-  flex: 1 1 350px;
   min-width: 320px;
   max-width: 480px;
   box-sizing: border-box;
+  overflow: hidden; /* Evitar desbordamiento */
 }
 
-.here-map-section {
-  flex: 2 1 500px;
-  min-width: 400px;
-  max-width: 900px;
+/* Forzar que todos los elementos del formulario respeten el contenedor */
+.here-form-section * {
   box-sizing: border-box;
 }
 
+/* Estilos específicos para el formulario HERE */
+.here-form-section .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  width: 100%;
+}
+
+.here-form-section .form-group {
+  min-width: 0; /* Permitir que se reduzcan */
+  width: 100%;
+}
+
+.here-form-section .form-group input,
+.here-form-section .form-group select,
+.here-form-section .form-group textarea {
+  width: 100%;
+  min-width: 0; /* Permitir que se reduzcan */
+  max-width: 100%; /* No exceder el contenedor */
+}
+
+.here-form-section .form-group small {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.3;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+/* En pantallas medianas, mantener 2 columnas pero más compactas */
+@media (max-width: 1200px) {
+  .here-form-section .form-row {
+    gap: 0.75rem;
+  }
+}
+
+/* En pantallas pequeñas, cambiar a 1 columna */
+@media (max-width: 900px) {
+  .here-form-section .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.here-map-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 400px;
+  box-sizing: border-box;
+  padding: 0 16px;
+}
+
+.here-map-container {
+  flex: 1;
+  min-height: 400px;
+}
+
+.here-details-container {
+  flex: 0 0 auto;
+  max-height: auto;
+  overflow-y: auto;
+}
+
+/* Responsive: En móviles, volver a layout vertical */
 @media (max-width: 1100px) {
-  .here-content-flex {
-    flex-direction: column;
+  .here-content-grid {
+    grid-template-columns: 1fr;
     gap: 24px;
   }
+  
   .here-form-section, .here-map-section {
     max-width: 100%;
     min-width: 0;
+  }
+  
+  .here-details-container {
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
@@ -126,4 +193,114 @@
   border-bottom: 1px solid #00afaa;
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
+}
+
+/* Estilos para ejemplos de direcciones */
+.examples-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.example-item {
+  background: #f8fffe;
+  border: 1px solid #e6f7f7;
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.example-item code {
+  background: #e8f5f5;
+  color: #00605c;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-block;
+  margin: 2px;
+  transition: background-color 0.2s;
+}
+
+.example-item code:hover {
+  background: #d4f0f0;
+  color: #004844;
+}
+
+.form-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.form-example {
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.form-example strong {
+  color: #0c4a6e;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.form-example small {
+  color: #64748b;
+  font-weight: 500;
+  display: inline-block;
+  min-width: 70px;
+}
+
+.form-example code {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+}
+
+.address-help .help-section {
+  margin-bottom: 1.5rem;
+}
+
+.address-help .help-section h5 {
+  color: #374151;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.25rem;
+}
+
+.address-help ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.address-help li {
+  margin-bottom: 0.5rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .examples-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-examples {
+    grid-template-columns: 1fr;
+  }
+  
+  .example-item, .form-example {
+    padding: 0.75rem;
+  }
 }

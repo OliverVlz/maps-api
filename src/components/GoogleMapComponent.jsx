@@ -40,7 +40,7 @@ function GoogleMapComponent({ location, addressData }) {
   const [showInfoWindow, setShowInfoWindow] = useState(false)
 
   const center = location || defaultCenter
-  const zoom = location ? 16 : 9
+  const zoom = location ? 19 : 9
 
   const handleMarkerClick = () => {
     setShowInfoWindow(!showInfoWindow)
@@ -98,17 +98,7 @@ function GoogleMapComponent({ location, addressData }) {
     <div className="map-component">
       <div className="map-header">
         <h3>Ubicación en el Mapa</h3>
-        {location ? (
-          <div className="location-status confirmed">
-            <span className="status-icon">✅</span>
-            <span>Ubicación Confirmada</span>
-          </div>
-        ) : (
-          <div className="location-status pending">
-            <span className="status-icon">📍</span>
-            <span>Busca una dirección para ver la ubicación</span>
-          </div>
-        )}
+        
       </div>
 
       <GoogleMap
@@ -155,22 +145,6 @@ function GoogleMapComponent({ location, addressData }) {
           </InfoWindow>
         )}
       </GoogleMap>
-
-      {location && (
-        <div className="location-details">
-          <h4>Detalles de la Ubicación</h4>
-          <div className="details-grid">
-            <div className="detail-item">
-              <label>Coordenadas:</label>
-              <span>{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</span>
-            </div>
-            <div className="detail-item">
-              <label>Dirección Completa:</label>
-              <span>{formatAddress()}</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

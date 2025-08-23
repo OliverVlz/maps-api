@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 
-function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
+function HereAddressForm({ 
+  addressData, 
+  setAddressData, 
+  onLocationSelect, 
+  onRealAddressUpdate, 
+  onCoordinatesDataUpdate 
+}) {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: addressData
   })
@@ -12,8 +18,7 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
   const [isSearching, setIsSearching] = useState(false)
   const [isSelectingAddress, setIsSelectingAddress] = useState(false)
   const [searchStatus, setSearchStatus] = useState(null)
-  const [submittedData, setSubmittedData] = useState(null)
-  const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
+  // const [submittedData, setSubmittedData] = useState(null)
   
   // Estados para coordenadas manuales
   const [manualCoordinates, setManualCoordinates] = useState('')
@@ -395,7 +400,7 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
           componentes: address
         }
         
-        setRealAddressFromCoords(realAddressData)
+        onRealAddressUpdate?.(realAddressData)
         console.log('🌍 HERE - DIRECCIÓN REAL de las coordenadas:', realAddressData)
       }
     } catch (error) {
@@ -483,6 +488,7 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
         lng: lng
       }
       setCoordinatesData(detailedCoordinatesData)
+      onCoordinatesDataUpdate?.(detailedCoordinatesData)
       
       console.log('✅ HERE - Coordenadas validadas:', location)
       
@@ -495,48 +501,48 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
   }
 
   // Función para geocodificar la dirección del formulario manualmente
-  const geocodeFormAddress = async () => {
-    const currentData = watchedFields
-    const fullAddressParts = []
-    
-    if (currentData.linea1) fullAddressParts.push(currentData.linea1)
-    if (currentData.linea2) fullAddressParts.push(currentData.linea2)
-    if (currentData.barrio) fullAddressParts.push(currentData.barrio)
-    if (currentData.municipio) fullAddressParts.push(currentData.municipio + ', PR')
+  // const geocodeFormAddress = async () => {
+  //   const currentData = watchedFields
+  //   const fullAddressParts = []
+  //   
+  //   if (currentData.linea1) fullAddressParts.push(currentData.linea1)
+  //   if (currentData.linea2) fullAddressParts.push(currentData.linea2)
+  //   if (currentData.barrio) fullAddressParts.push(currentData.barrio)
+  //   if (currentData.municipio) fullAddressParts.push(currentData.municipio + ', PR')
 
-    if (fullAddressParts.length === 0) {
-      setSearchStatus({ 
-        type: 'warning', 
-        message: '⚠️ Por favor llena al menos la dirección línea 1 para buscar en el mapa' 
-      })
-      return
-    }
+  //   if (fullAddressParts.length === 0) {
+  //     setSearchStatus({ 
+  //       type: 'warning', 
+  //       message: '⚠️ Por favor llena al menos la dirección línea 1 para buscar en el mapa' 
+  //     })
+  //     return
+  //   }
 
-    const fullAddress = fullAddressParts.join(', ')
-    const processedAddress = preprocessPuertoRicanAddress(fullAddress)
+  //   const fullAddress = fullAddressParts.join(', ')
+  //   const processedAddress = preprocessPuertoRicanAddress(fullAddress)
 
-    console.log('🔍 HERE - Geocodificando dirección del formulario:', fullAddress)
-    console.log('🔄 HERE - Dirección procesada para HERE Maps:', processedAddress)
+  //   console.log('🔍 HERE - Geocodificando dirección del formulario:', fullAddress)
+  //   console.log('🔄 HERE - Dirección procesada para HERE Maps:', processedAddress)
 
-    setSearchStatus({ 
-      type: 'info', 
-      message: '🔍 Buscando tu dirección en el mapa...' 
-    })
+  //   setSearchStatus({ 
+  //     type: 'info', 
+  //     message: '🔍 Buscando tu dirección en el mapa...' 
+  //   })
 
-    try {
-      await geocodeAddressWithFetch(processedAddress)
-      setSearchStatus({ 
-        type: 'success', 
-        message: '✅ Dirección encontrada y ubicada en el mapa' 
-      })
-    } catch (error) {
-      console.error('❌ HERE - Error en geocodificación del formulario:', error)
-      setSearchStatus({ 
-        type: 'error', 
-        message: '❌ No se pudo encontrar esta dirección en el mapa' 
-      })
-    }
-  }
+  //   try {
+  //     await geocodeAddressWithFetch(processedAddress)
+  //     setSearchStatus({ 
+  //       type: 'success', 
+  //       message: '✅ Dirección encontrada y ubicada en el mapa' 
+  //     })
+  //   } catch (error) {
+  //     console.error('❌ HERE - Error en geocodificación del formulario:', error)
+  //     setSearchStatus({ 
+  //       type: 'error', 
+  //       message: '❌ No se pudo encontrar esta dirección en el mapa' 
+  //     })
+  //   }
+  // }
 
   // Función para manejar envío del formulario
   const onSubmit = async (data) => {
@@ -544,10 +550,10 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
       console.log('📝 HERE - Datos del formulario enviados:', data)
       
       setAddressData(data)
-      setSubmittedData({
-        ...data,
-        timestamp: new Date().toLocaleString()
-      })
+      // setSubmittedData({
+      //   ...data,
+      //   timestamp: new Date().toLocaleString()
+      // })
       setSearchStatus({ 
         type: 'success', 
         message: `✅ Formulario enviado | ${formatAddressForDisplay(data)}` 
@@ -588,72 +594,6 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
 
     return () => clearTimeout(timeoutId)
   }, [watchedFields, setAddressData])
-
-  // Funciones auxiliares para validación de direcciones
-  const formatUserAddress = () => {
-    const parts = []
-    if (addressData.linea1) parts.push(addressData.linea1)
-    if (addressData.linea2) parts.push(addressData.linea2)
-    if (addressData.barrio) parts.push(addressData.barrio)
-    if (addressData.municipio) parts.push(`${addressData.municipio}, PR`)
-    return parts.join(', ')
-  }
-
-  const isGenericAddress = () => {
-    if (!realAddressFromCoords) return false
-    
-    const address = realAddressFromCoords.direccion_completa.toLowerCase()
-    const municipio = realAddressFromCoords.municipio.toLowerCase()
-    const barrio = realAddressFromCoords.barrio.toLowerCase()
-    
-    const genericIndicators = [
-      address === 'puerto rico',
-      address === 'puerto rico, usa',
-      address.includes('puerto rico') && address.split(',').length <= 2,
-      !municipio || municipio === '',
-      !barrio || barrio === ''
-    ]
-    
-    return genericIndicators.some(indicator => indicator)
-  }
-
-  const checkAddressDiscrepancies = () => {
-    if (!realAddressFromCoords) return false
-    
-    const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
-    const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
-    
-    const municipioMatch = realMunicipio === userMunicipio
-    const barrioMatch = realBarrio === userBarrio || realBarrio.includes(userBarrio) || userBarrio.includes(realBarrio)
-    
-    return !municipioMatch || (!barrioMatch && realBarrio && userBarrio)
-  }
-
-  const getDiscrepancyMessages = () => {
-    if (!realAddressFromCoords) return []
-    
-    const messages = []
-    const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
-    const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
-    
-    if (realMunicipio && userMunicipio && realMunicipio !== userMunicipio) {
-      messages.push(`Municipio: HERE Maps dice "${realAddressFromCoords.municipio}", pero escribiste "${addressData.municipio}"`)
-    }
-    
-    if (realBarrio && userBarrio && !realBarrio.includes(userBarrio) && !userBarrio.includes(realBarrio)) {
-      messages.push(`Barrio: HERE Maps dice "${realAddressFromCoords.barrio}", pero escribiste "${addressData.barrio}"`)
-    }
-    
-    if (!realBarrio && userBarrio) {
-      messages.push(`Barrio: Escribiste "${addressData.barrio}" pero HERE Maps no detecta un barrio específico en esta coordenada`)
-    }
-    
-    return messages
-  }
 
   return (
     <div className="address-form">
@@ -811,195 +751,119 @@ function HereAddressForm({ addressData, setAddressData, onLocationSelect }) {
 
         <div className="form-actions">
           <button 
-            type="button" 
-            onClick={geocodeFormAddress}
-            className="search-btn"
-            style={{ 
-              backgroundColor: '#3b82f6', 
-              color: 'white', 
-              padding: '0.75rem 1.5rem', 
-              marginRight: '1rem',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer'
-            }}
+            type="submit" 
+            className="submit-btn"
+            style={{ width: '100%' }}
           >
-            🔍 Buscar en Mapa
-          </button>
-          <button type="submit" className="submit-btn">
-            Confirmar Dirección
+            🔍 Buscar Dirección
           </button>
         </div>
       </form>
 
-      {submittedData && (
-        <details className="form-result">
-          <summary><h3>✅ Datos Enviados</h3></summary>
-          <div className="result-grid">
-            <div className="result-item">
-              <label>Dirección Línea 1:</label>
-              <span>{submittedData.linea1 || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Dirección Línea 2:</label>
-              <span>{submittedData.linea2 || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Municipio:</label>
-              <span>{submittedData.municipio || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Barrio/Sector:</label>
-              <span>{submittedData.barrio || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Descripción:</label>
-              <span>{submittedData.descripcion || 'No especificado'}</span>
-            </div>
-            <div className="result-item">
-              <label>Enviado el:</label>
-              <span>{submittedData.timestamp}</span>
-            </div>
-          </div>
-        </details>
-      )}
-
-      {realAddressFromCoords && (
-        <details className="address-validation">
-          <summary><h4>🔍 Validación de Coordenadas</h4></summary>
-          <div className="validation-content">
-            <div className="validation-info">
-              <p><strong>Coordenadas seleccionadas:</strong> {realAddressFromCoords.coordenadas}</p>
-            </div>
-            
-            <div className="validation-comparison">
-              <div className="real-address">
-                <h5>📍 Dirección REAL de HERE Maps:</h5>
-                <p className="address-text">{realAddressFromCoords.direccion_completa}</p>
-                <div className="address-details">
-                  <p><strong>Municipio:</strong> {realAddressFromCoords.municipio || 'No detectado'}</p>
-                  <p><strong>Barrio:</strong> {realAddressFromCoords.barrio || 'No detectado'}</p>
-                </div>
-                
-                {isGenericAddress() && (
-                  <div className="generic-address-warning">
-                    <h6>ℹ️ Información limitada disponible</h6>
-                    <p>Esta ubicación rural tiene datos limitados en HERE Maps. El pin está colocado correctamente en las coordenadas <strong>{realAddressFromCoords.coordenadas}</strong>, pero HERE Maps no puede proporcionar detalles específicos de municipio/barrio para esta zona.</p>
-                    <div className="suggestions">
-                      <strong>Esto es normal para direcciones rurales:</strong>
-                      <ul>
-                        <li>📍 El mapa y coordenadas son correctos</li>
-                        <li>🗺️ HERE Maps tiene datos limitados para esta área rural</li>
-                        <li>✅ Puedes usar esta ubicación con confianza</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="user-address">
-                <h5>✏️ Tu dirección ingresada:</h5>
-                <p className="address-text">{formatUserAddress()}</p>
-                <div className="address-details">
-                  <p><strong>Municipio:</strong> {addressData.municipio || 'No especificado'}</p>
-                  <p><strong>Barrio:</strong> {addressData.barrio || 'No especificado'}</p>
-                </div>
-              </div>
-            </div>
-
-            {checkAddressDiscrepancies() && (
-              <div className="validation-warning">
-                <h5>⚠️ Posibles discrepancias detectadas:</h5>
-                <ul>
-                  {getDiscrepancyMessages().map((msg, index) => (
-                    <li key={index}>{msg}</li>
-                  ))}
-                </ul>
-                <p><small>
-                  💡 Verifica si el barrio/municipio que escribiste realmente corresponde a esta ubicación.
-                </small></p>
-              </div>
-            )}
-          </div>
-        </details>
-      )}
-
-      {coordinatesData && (
-        <div className="coordinates-details">
-          <h4>📍 Información Detallada de Coordenadas</h4>
-          <div className="coordinates-content">
-            <div className="coordinates-basic">
-              <h5>📌 Información Básica</h5>
-              <div className="coordinates-grid">
-                <div className="coord-item">
-                  <label>Coordenadas:</label>
-                  <span className="coord-value">{coordinatesData.coordinates}</span>
-                </div>
-                <div className="coord-item">
-                  <label>Precisión:</label>
-                  <span className={`precision-level ${coordinatesData.precision.level.toLowerCase().replace(' ', '-')}`}>
-                    {coordinatesData.precision.level}
-                  </span>
-                </div>
-                <div className="coord-item">
-                  <label>Descripción:</label>
-                  <span>{coordinatesData.precision.description}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <details className="address-help">
-        <summary><h4>¿Cómo obtener una dirección completa en Puerto Rico?</h4></summary>
+        <summary><h4>📋 Ejemplos de Direcciones de Puerto Rico</h4></summary>
         <div className="help-content">
           <div className="help-section">
-            <h5>✅ Información Necesaria:</h5>
-            <ul>
-              <li><strong>Línea 1:</strong> Dirección principal
-                <ul style={{ marginTop: '0.25rem', fontSize: '0.75rem' }}>
-                  <li>📍 <strong>Urbana:</strong> 123 Calle Principal</li>
-                  <li>🛣️ <strong>Rural:</strong> KM 15.2 Carr. 123, PR-456 KM 8.5</li>
-                </ul>
-              </li>
-              <li><strong>Línea 2:</strong> Apartamento, suite, etc. (opcional)</li>
-              <li><strong>Municipio:</strong> Uno de los 78 municipios de PR</li>
-              <li><strong>Barrio/Sector:</strong> Subdivisión del municipio</li>
-              <li><strong>Código Postal:</strong> 00xxx (se agrega automáticamente por correo)</li>
-            </ul>
+            <h5>🏙️ Direcciones Urbanas (Copia y pega en búsqueda):</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <code>Plaza de Armas Caguas</code>
+              </div>
+              <div className="example-item">
+                <code>Escuela José de Diego Cayey</code>
+              </div>
+              <div className="example-item">
+                <code>Centro de Salud Comerío</code>
+              </div>
+              <div className="example-item">
+                <code>Iglesia San José Cidra</code>
+              </div>
+            </div>
           </div>
           
           <div className="help-section">
-            <h5>🔍 Tips de Búsqueda con HERE Maps:</h5>
-            <ul>
-              <li><strong>Zonas Urbanas:</strong> "Calle Principal Bayamón", "Pueblo Cayey"</li>
-              <li><strong>Zonas Rurales:</strong> "KM 15 Carr 123", "Carretera 456 Caguas"</li>
-              <li>Usa <strong>puntos de referencia</strong> (Ej: "Escuela Central", "Plaza del Mercado")</li>
-              <li>Busca <strong>negocios conocidos</strong> cerca de tu dirección</li>
-              <li>Si no encuentra tu ubicación exacta, selecciona el <strong>punto más cercano</strong></li>
-            </ul>
+            <h5>🛣️ Direcciones Rurales con Carreteras:</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <strong>Carreteras Estatales:</strong><br />
+                <code>PR-123 KM 15.2, Ciales</code><br />
+                <code>PR-156 KM 32.1, Comerío</code><br />
+                <code>PR-152 KM 18.5, Barranquitas</code>
+              </div>
+              <div className="example-item">
+                <strong>Carreteras Municipales:</strong><br />
+                <code>Carr 156 KM 8.5, Bo. Naranjo, Comerío</code><br />
+                <code>Carretera 162 KM 18.5, Bo. Juan Asencio, Aguas Buenas</code><br />
+                <code>KM 41.2 Carr 143, Bo. Helechal, Barranquitas</code>
+              </div>
+            </div>
           </div>
 
           <div className="help-section">
-            <h5>🌍 Coordenadas Directas:</h5>
-            <ul>
-              <li><strong>Formato aceptado:</strong> "18.219107, -66.225394"</li>
-              <li><strong>Con espacios:</strong> "18.219107 -66.225394"</li>
-              <li><strong>Sin espacios:</strong> "18.219107,-66.225394"</li>
-              <li><strong>Validación automática</strong> para Puerto Rico (Lat: 17.8-18.7, Lng: -67.5 a -65.0)</li>
-              <li><strong>Información detallada</strong> con precisión y componentes de dirección</li>
-              <li>💡 Usa este método si tienes coordenadas exactas de GPS</li>
-            </ul>
+            <h5>🏔️ Zonas Montañosas (Cordillera Central):</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <code>KM 15.7 PR-511, Bo. Jájome Alto, Cayey</code>
+              </div>
+              <div className="example-item">
+                <code>Carr 156 KM 28.3, Bo. Damián Arriba, Comerío</code>
+              </div>
+              <div className="example-item">
+                <code>PR-152 KM 22.8, Bo. Farallón, Cidra</code>
+              </div>
+            </div>
           </div>
 
           <div className="help-section">
-            <h5>🛣️ Direcciones Rurales Comunes:</h5>
+            <h5>🌍 Coordenadas para Probar:</h5>
+            <div className="examples-grid">
+              <div className="example-item">
+                <strong>Caguas rural:</strong><br />
+                <code>18.238889, -66.150000</code>
+              </div>
+              <div className="example-item">
+                <strong>Cayey montañoso:</strong><br />
+                <code>18.180000, -66.330000</code>
+              </div>
+              <div className="example-item">
+                <strong>Comerío rural:</strong><br />
+                <code>18.255000, -66.225000</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="help-section">
+            <h5>📝 Ejemplos de Formularios Completos:</h5>
+            <div className="form-examples">
+              <div className="form-example">
+                <strong>🏘️ Rural Típico:</strong><br />
+                <small>Línea 1:</small> <code>Carr 156 KM 8.5</code><br />
+                <small>Municipio:</small> <code>Comerío</code><br />
+                <small>Barrio:</small> <code>Naranjo</code>
+              </div>
+              <div className="form-example">
+                <strong>🛣️ Carretera Estatal:</strong><br />
+                <small>Línea 1:</small> <code>PR-152 KM 18.5</code><br />
+                <small>Municipio:</small> <code>Barranquitas</code><br />
+                <small>Barrio:</small> <em>(dejar vacío)</em>
+              </div>
+              <div className="form-example">
+                <strong>🏙️ Urbano:</strong><br />
+                <small>Línea 1:</small> <code>Calle Luna 45</code><br />
+                <small>Municipio:</small> <code>Ponce</code><br />
+                <small>Barrio:</small> <code>Playa</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="help-section">
+            <h5>� Tips de Uso:</h5>
             <ul>
-              <li><strong>KM + Carretera:</strong> "KM 15.2 Carr. 123"</li>
-              <li><strong>PR (Carretera Estatal):</strong> "PR-456 KM 8.5"</li>
-              <li><strong>Carretera + Municipio:</strong> "Carretera 789 Humacao"</li>
-              <li><strong>Ruta + Sector:</strong> "Ruta 321 Bo. Pueblo"</li>
+              <li>🔍 <strong>Búsqueda rápida:</strong> Copia cualquier ejemplo y pégalo en "Buscar Ubicación"</li>
+              <li>📍 <strong>Coordenadas:</strong> Pega las coordenadas en "Ingresar Coordenadas Directamente"</li>
+              <li>📝 <strong>Formulario manual:</strong> Llena los campos como se muestra en los ejemplos</li>
+              <li>🗺️ <strong>Variaciones:</strong> Puedes usar "KM 15.2 Carr 123" o "Carr 123 KM 15.2"</li>
+              <li>⚠️ <strong>Validación:</strong> El sistema te avisará si hay discrepancias en municipio/barrio</li>
             </ul>
           </div>
         </div>

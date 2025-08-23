@@ -227,7 +227,7 @@ const HereMapComponent = ({ location }) => {
 
       // Centrar mapa en la nueva ubicación usando el método correcto
       map.current.setCenter(markerLocation)
-      map.current.setZoom(17)
+      map.current.setZoom(19)
       
       // Forzar actualización del viewport
       setTimeout(() => {
@@ -237,7 +237,7 @@ const HereMapComponent = ({ location }) => {
         }
       }, 100)
       
-      console.log('🎯 HERE - Mapa centrado en nueva ubicación con zoom 17')
+      console.log('🎯 HERE - Mapa centrado en nueva ubicación con zoom 19')
 
       console.log('✅ HERE - Ubicación actualizada exitosamente')
 
@@ -335,33 +335,18 @@ const HereMapComponent = ({ location }) => {
 
   return (
     <div>
-      <h3>HERE Maps - NPM Workaround</h3>
+      <h3>Ubicación en el Mapa</h3>
       <div
         style={{
           width: "100%",
           height: "500px",
           border: '1px solid #dee2e6',
           borderRadius: '8px',
-          backgroundColor: '#f8f9fa', // Fondo visible para debug
+          backgroundColor: '#f8f9fa',
           position: 'relative'
         }}
         ref={mapRef}
       >
-        {/* Overlay de debug para verificar que el contenedor está visible */}
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          left: '10px',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          padding: '5px 10px',
-          borderRadius: '3px',
-          fontSize: '12px',
-          zIndex: 1000,
-          pointerEvents: 'none'
-        }}>
-          Contenedor: {mapRef.current ? `${mapRef.current.offsetWidth}x${mapRef.current.offsetHeight}` : 'No disponible'}
-        </div>
       </div>
     </div>
   )

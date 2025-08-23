@@ -26,8 +26,7 @@ function App() {
       <Router>
         <div className="app">
           <header className="app-header">
-            <h1>Formulario de Direcciones Rurales - Puerto Rico</h1>
-            <nav style={{ marginTop: 8 }}>
+            <nav style={{ marginTop: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <Link to="/here" style={{ marginRight: 12 }}>Here (home)</Link>
               <Link to="/google" style={{ marginRight: 12 }}>Google</Link>
               <Link to="/mapbox">Mapbox</Link>
