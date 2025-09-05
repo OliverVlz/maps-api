@@ -19,6 +19,12 @@ function GooglePage() {
   const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
   const [coordinatesData, setCoordinatesData] = useState(null)
 
+  // Handler para manejar resultados de Address Validation API
+  const handleAddressValidation = (validationResult) => {
+    console.log('📮 Address Validation Result:', validationResult)
+    // Aquí puedes añadir lógica adicional si necesitas procesar el resultado
+  }
+
   return (
     <div className="google-page-container">
       <h2 className="google-title">GOOGLE - Formulario y Mapa</h2>
@@ -44,6 +50,7 @@ function GooglePage() {
               realAddressFromCoords={realAddressFromCoords}
               addressData={addressData}
               coordinatesData={coordinatesData}
+              onValidateAddress={handleAddressValidation}
             />
           </div>
         </div>

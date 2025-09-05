@@ -1,13 +1,66 @@
+import { useState } from 'react'
+import MapboxAddressFormOfficial from '../components/MapboxAddressFormOfficial'
+import MapboxMapComponent from '../components/MapboxMapComponent'
+import MapboxAddressDetails from '../components/MapboxAddressDetails'
+import MapboxDebugTest from '../components/MapboxDebugTest'
+import './MapboxPage.css'
 
 function MapboxPage() {
+  const [selectedLocation, setSelectedLocation] = useState(null)
+  const [addressData, setAddressData] = useState({
+    linea1: '',
+    linea2: '',
+    municipio: '',
+    barrio: '',
+    descripcion: ''
+  })
+  
+  // Estados para los detalles de validación (pasados desde el formulario)
+  const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
+  const [coordinatesData, setCoordinatesData] = useState(null)
+
   return (
-    <div style={{ padding: 32, textAlign: 'center' }}>
-      <h2>Mapbox - Página de Pruebas</h2>
-      <p style={{ fontSize: 18, marginTop: 24 }}>
-        Aquí irá la integración real con la API de <b>Mapbox</b>.<br />
-        Por ahora, solo es un placeholder.<br />
-        Usa las rutas <b>/google</b> y <b>/here</b> para comparar.
-      </p>
+    <div className="mapbox-page-container">
+      <h2 className="mapbox-title">Mapbox - Formulario y Mapa</h2>
+      
+      {/* 🔍 Debug Test */}
+      <MapboxDebugTest />
+      
+      {/* Componente oficial de Mapbox */}
+      <div style={{ 
+        margin: '20px 0', 
+        padding: '20px', 
+        border: '2px solid #10b981', 
+        borderRadius: '8px', 
+        background: '#f0fdf4' 
+      }}>
+        <h3 style={{ color: '#059669', marginTop: 0 }}>✨ Implementación Oficial de Mapbox</h3>
+        <MapboxAddressFormOfficial
+          addressData={addressData}
+          setAddressData={setAddressData}
+          onAddressSelect={setSelectedLocation}
+          onRealAddressUpdate={setRealAddressFromCoords}
+          onCoordinatesDataUpdate={setCoordinatesData}
+        />
+      </div>
+      
+      <div className="mapbox-content-grid">
+        <div className="mapbox-map-section">
+          <div className="mapbox-map-container">
+            <MapboxMapComponent
+              location={selectedLocation}
+              addressData={addressData}
+            />
+          </div>
+          <div className="mapbox-details-container">
+            <MapboxAddressDetails
+              realAddressFromCoords={realAddressFromCoords}
+              addressData={addressData}
+              coordinatesData={coordinatesData}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

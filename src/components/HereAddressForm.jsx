@@ -44,33 +44,26 @@ function HereAddressForm({
       setIsLoadingMunicipios(true)
       
       try {
-        // Opción 1: Intentar con Census Bureau API primero (fuente oficial más actualizada)
-        const censusResponse = await fetch('https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:72')
+              // Cargar directamente desde archivo local (más confiable)
+      try {
+        const response = await fetch('/data/municipios-pr.json')
+        const data = await response.json()
         
-        if (censusResponse.ok) {
-          const censusData = await censusResponse.json()
+        if (data.municipios && Array.isArray(data.municipios)) {
+          // Extraer solo los nombres de los municipios
+          const municipiosFromLocal = data.municipios
+            .map(municipio => municipio.name)
+            .filter(name => name && typeof name === 'string')
+            .sort()
           
-          if (Array.isArray(censusData) && censusData.length > 1) {
-            // Procesar datos del Census Bureau: eliminar header y extraer nombres
-            const municipiosFromCensus = censusData
-              .slice(1) // Eliminar header row
-              .map(row => {
-                const fullName = row[0] // "Adjuntas Municipio, Puerto Rico"
-                const municipioName = fullName.replace(' Municipio, Puerto Rico', '')
-                return municipioName
-              })
-              .filter(name => name && name.length > 0)
-              .sort()
-            
-            setMunicipios(municipiosFromCensus)
-            setMunicipiosSource('census-bureau')
-            console.log('✅ HERE - Municipios cargados desde Census Bureau (oficial):', municipiosFromCensus.length)
-            setIsLoadingMunicipios(false)
-            return
-          }
+          setMunicipios(municipiosFromLocal)
+          setMunicipiosSource('local-json')
+          console.log('✅ HERE - Municipios cargados desde archivo local:', municipiosFromLocal.length)
+          return
         }
-        
-        throw new Error('Census Bureau API no disponible')
+      } catch (localError) {
+        console.warn('⚠️ HERE - Error cargando archivo local:', localError.message)
+      }
       } catch (error) {
         console.log('⚠️ HERE - No se pudo cargar desde Census Bureau:', error.message)
         
@@ -709,8 +702,8 @@ function HereAddressForm({
               <option value="">
                 {isLoadingMunicipios ? 'Cargando municipios...' : 'Selecciona municipio'}
               </option>
-              {municipios.map(municipio => (
-                <option key={municipio} value={municipio}>{municipio}</option>
+              {municipios.filter(municipio => typeof municipio === 'string' && municipio.trim()).map((municipio, index) => (
+                <option key={`${municipio}-${index}`} value={municipio}>{municipio}</option>
               ))}
             </select>
             {errors.municipio && <span className="error">{errors.municipio.message}</span>}

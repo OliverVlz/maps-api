@@ -1,65 +1,31 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 
-// Función para validar y parsear coordenadas (comentada - no se usa sin botón)
-/*
-const parseCoordinates = (coordString) => {
-  if (!coordString) return null
-  
-  // Remover espacios y separar por coma
-  const trimmed = coordString.trim()
-  const parts = trimmed.split(',').map(part => part.trim())
-  
-  if (parts.length !== 2) return null
-  
-  const lat = parseFloat(parts[0])
-  const lng = parseFloat(parts[1])
-  
-  // Validar que sean números válidos y estén en rangos razonables
-  if (isNaN(lat) || isNaN(lng)) return null
-  if (lat < -90 || lat > 90) return null
-  if (lng < -180 || lng > 180) return null
-  
-  return { lat, lng }
-}
-*/
-
 function GoogleAddressForm({ 
   addressData, 
   setAddressData, 
   onLocationSelect, 
   onRealAddressUpdate, 
   onCoordinatesDataUpdate
-  // onAddressSelect,
-  // onDetailsUpdate 
 }) {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: addressData
   })
   
-  // Estados para autocompletado y sugerencias
+  const sessionTokenRef = useRef(crypto.randomUUID())
+  
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [isSelectingAddress, setIsSelectingAddress] = useState(false)
   const [searchStatus, setSearchStatus] = useState(null)
-  // const [submittedData, setSubmittedData] = useState(null)
   
-  // Estados para coordenadas manuales
   const [manualCoordinates, setManualCoordinates] = useState('')
   const [coordinatesData, setCoordinatesData] = useState(null)
   const [coordinatesError, setCoordinatesError] = useState('')
   const [isValidatingCoords, setIsValidatingCoords] = useState(false)
   const [hasSelectedSuggestion, setHasSelectedSuggestion] = useState(false)
   
-  // Estados específicos para Google Maps
-  // const [autocompleteService, setAutocompleteService] = useState(null)
-  // const [placesService, setPlacesService] = useState(null)
-  // const [realAddressFromCoords, setRealAddressFromCoords] = useState(null)
-  // const [directGeocodingWarning] = useState(null)
-  // const [setDirectGeocodingWarning] = useState(null)
-  
-  // Estados para municipios dinámicos
   const [municipios, setMunicipios] = useState([])
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false)
   const [municipiosSource, setMunicipiosSource] = useState(null)
@@ -70,24 +36,22 @@ function GoogleAddressForm({
 
   const watchedFields = watch()
 
-  // Cargar municipios al montar el componente
   useEffect(() => {
     const loadMunicipios = async () => {
       setIsLoadingMunicipios(true)
       
       try {
-        // Opción 1: Intentar con Census Bureau API primero (fuente oficial más actualizada)
+        // Intentar con Census Bureau API primero (fuente oficial)
         const censusResponse = await fetch('https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:72')
         
         if (censusResponse.ok) {
           const censusData = await censusResponse.json()
           
           if (Array.isArray(censusData) && censusData.length > 1) {
-            // Procesar datos del Census Bureau: eliminar header y extraer nombres
             const municipiosFromCensus = censusData
-              .slice(1) // Eliminar header row
+              .slice(1)
               .map(row => {
-                const fullName = row[0] // "Adjuntas Municipio, Puerto Rico"
+                const fullName = row[0]
                 const municipioName = fullName.replace(' Municipio, Puerto Rico', '')
                 return municipioName
               })
@@ -96,18 +60,15 @@ function GoogleAddressForm({
             
             setMunicipios(municipiosFromCensus)
             setMunicipiosSource('census-bureau')
-            console.log('✅ HERE - Municipios cargados desde Census Bureau (oficial):', municipiosFromCensus.length)
             setIsLoadingMunicipios(false)
             return
           }
         }
         
         throw new Error('Census Bureau API no disponible')
-      } catch (error) {
-        console.log('⚠️ HERE - No se pudo cargar desde Census Bureau:', error.message)
-        
+      } catch {
         try {
-          // Opción 2: Fallback a archivo local (rápido y confiable)
+          // Fallback a archivo local
           const localResponse = await fetch('/data/municipios-pr.json')
           
           if (localResponse.ok) {
@@ -120,15 +81,13 @@ function GoogleAddressForm({
               
               setMunicipios(municipiosFromLocal)
               setMunicipiosSource('local-json')
-              console.log('✅ HERE - Municipios cargados desde archivo local (fallback):', municipiosFromLocal.length)
               setIsLoadingMunicipios(false)
               return
             }
           }
           
           throw new Error('Archivo local no disponible')
-        } catch (error2) {
-          console.log('❌ HERE - Error: No se pudieron cargar municipios desde ninguna fuente:', error2.message)
+        } catch {
           setIsLoadingMunicipios(false)
         }
       }
@@ -143,22 +102,17 @@ function GoogleAddressForm({
     }
   }, [])
 
-  // Sincronizar el formulario cuando addressData cambie desde el componente padre
-  // Solo al inicializar, no crear bucles
   useEffect(() => {
-    console.log('🔄 HERE - useEffect - addressData inicial recibido del padre:', addressData)
     if (addressData) {
       setValue('linea1', addressData.linea1 || '')
       setValue('linea2', addressData.linea2 || '')
       setValue('municipio', addressData.municipio || '')
       setValue('barrio', addressData.barrio || '')
       setValue('descripcion', addressData.descripcion || '')
-      console.log('✅ HERE - Formulario sincronizado con addressData inicial del padre:', addressData)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Solo al montar el componente
+  }, [])
 
-  // Función para formatear direcciones de manera organizada
   const formatAddressForDisplay = (addressData) => {
     const parts = []
     if (addressData.linea1) parts.push(addressData.linea1)
@@ -167,33 +121,27 @@ function GoogleAddressForm({
     return parts.join(' | ')
   }
 
-  // Función para mejorar el procesamiento de direcciones rurales de PR
   const preprocessPuertoRicanAddress = (address) => {
     if (!address) return address
     
     let processedAddress = address.trim()
     
-    // Mejorar formato de carreteras rurales
-    // "Carr 123 KM 15.2" -> "Carretera 123 Kilómetro 15.2"
+    if (/^km\.?\s*\d+\.?\d*$/i.test(processedAddress)) {
+      processedAddress = processedAddress.replace(/^km\.?\s*(\d+\.?\d*)$/i, 'kilómetro $1') + ', Puerto Rico'
+    }
+    
     processedAddress = processedAddress.replace(/\bcarr\.?\s*(\d+)\s*km\.?\s*([\d.]+)/gi, 'Carretera $1 Kilómetro $2')
     
-    // "PR-123 KM 15.2" -> "Carretera PR-123 Kilómetro 15.2"
     processedAddress = processedAddress.replace(/\bPR-(\d+)\s*km\.?\s*([\d.]+)/gi, 'Carretera PR-$1 Kilómetro $2')
     
-    // Mejorar formato de barrios
-    // "Bo. Naranjo" -> "Barrio Naranjo"
     processedAddress = processedAddress.replace(/\bbo\.?\s+/gi, 'Barrio ')
     
-    // "Sect. La Esperanza" -> "Sector La Esperanza"
     processedAddress = processedAddress.replace(/\bsect\.?\s+/gi, 'Sector ')
     
-    // "Urb. Las Flores" -> "Urbanización Las Flores"
     processedAddress = processedAddress.replace(/\burb\.?\s+/gi, 'Urbanización ')
     
-    // "Res. Villa Rica" -> "Residencial Villa Rica"
     processedAddress = processedAddress.replace(/\bres\.?\s+/gi, 'Residencial ')
     
-    // Asegurar que Puerto Rico esté al final si no está presente
     if (!processedAddress.toLowerCase().includes('puerto rico') && !processedAddress.toLowerCase().includes(', pr')) {
       processedAddress += ', Puerto Rico'
     }
@@ -201,257 +149,309 @@ function GoogleAddressForm({
     return processedAddress
   }
 
-  // Función para hacer búsquedas con HERE API
   const searchAddress = (query) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current)
-    }
-    
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+
     if (query.length < 3) {
-      setSuggestions([])
-      setSearchStatus(null)
-      setIsSearching(false)
-      setHasSelectedSuggestion(false)
-      return
+      setSuggestions([]); setShowSuggestions(false);
+      setIsSearching(false); setSearchStatus(null);
+      return;
     }
 
-    setIsSearching(true)
-    setSearchStatus(null)
-    setHasSelectedSuggestion(false)
-
-    // Detectar si el usuario incluyó barrio manualmente en la búsqueda
-    const barrioInQuery = query.match(/\b(?:bo\.?|barrio)\s+([^,]+)/i)
-    if (barrioInQuery) {
-      console.log('🏘️ HERE - Barrio detectado en búsqueda:', barrioInQuery[1].trim())
-    }
-
-    // Guardar la query original para usar en selectAddress
-    currentQueryRef.current = query
+    setIsSearching(true); setSearchStatus(null);
+    currentQueryRef.current = query;
 
     debounceTimeoutRef.current = setTimeout(async () => {
       try {
-        const apiKey = import.meta.env.VITE_HERE_API_KEY
-        if (!apiKey) {
-          throw new Error('HERE API Key no configurada')
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) throw new Error('Configura VITE_GOOGLE_MAPS_API_KEY');
+
+        const processedQuery = preprocessPuertoRicanAddress(query);
+
+        const body = {
+          input: processedQuery,
+          includedRegionCodes: ["PR"],
+          regionCode: "PR",
+          sessionToken: sessionTokenRef.current,
+          locationBias: {
+            circle: {
+              center: { latitude: 18.2208, longitude: -66.5901 },
+              radius: 50000.0
+            }
+          },
+          languageCode: "es"
+        };
+
+        const resp = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text"
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          const errorText = await resp.text()
+          
+          if (resp.status === 403) {
+            const isRefererError = errorText.includes('referer') || errorText.includes('Referer');
+            const isAPINotEnabled = errorText.includes('API') && errorText.includes('not enabled');
+            
+            if (isRefererError) {
+              throw new Error('Error 403: Configura los referrers HTTP en Google Cloud Console para localhost');
+            } else if (isAPINotEnabled) {
+              throw new Error('Error 403: Habilita "Places API (New)" en Google Cloud Console');
+            } else {
+              throw new Error(`Error 403: ${errorText}`);
+            }
+          }
+          throw new Error(`Autocomplete error ${resp.status}: ${errorText}`);
         }
 
-        const encodedQuery = encodeURIComponent(`${query}, Puerto Rico`)
-        const url = `https://autosuggest.search.hereapi.com/v1/autosuggest?q=${encodedQuery}&at=18.2208,-66.5901&limit=5&lang=es&in=countryCode:PRI&apiKey=${apiKey}`
+        const data = await resp.json();
 
-        console.log('🔍 HERE - Buscando:', query)
-        
-        const response = await fetch(url)
-        
-        if (!response.ok) {
-          throw new Error(`Error en búsqueda: ${response.status} ${response.statusText}`)
-        }
+        const list = (data.suggestions || [])
+          .filter(s => s.placePrediction)
+          .map((s, idx) => ({
+            place_id: s.placePrediction.placeId || `ac_${idx}`,
+            description: s.placePrediction.text?.text || ""
+          }));
 
-        const data = await response.json()
-        console.log('📍 HERE - Respuesta de búsqueda:', data)
-
-        if (data.items && data.items.length > 0) {
-          const hereSuggestions = data.items.map((item, index) => ({
-            place_id: `here_${index}_${Date.now()}`,
-            description: item.title,
-            title: item.title,
-            address: item.address,
-            position: item.position,
-            resultType: item.resultType,
-            hereId: item.id
-          }))
-
-          setSuggestions(hereSuggestions)
-          setShowSuggestions(true)
-          setSearchStatus({ 
-            type: 'success', 
-            message: `✅ ${hereSuggestions.length} sugerencias encontradas con HERE Maps` 
-          })
-          console.log('✅ HERE - Sugerencias encontradas:', hereSuggestions.length)
-        } else {
-          setSuggestions([])
-          setShowSuggestions(false)
-          setSearchStatus({ 
-            type: 'warning', 
-            message: '⚠️ No se encontraron sugerencias para esta búsqueda' 
-          })
-        }
-      } catch (error) {
-        console.error('❌ HERE - Error en búsqueda:', error)
-        setSuggestions([])
-        setShowSuggestions(false)
-        setSearchStatus({ 
-          type: 'error', 
-          message: `❌ Error en búsqueda: ${error.message}` 
-        })
+        setSuggestions(list);
+        setShowSuggestions(list.length > 0);
+        setSearchStatus(list.length
+          ? { type: "success", message: `✅ ${list.length} sugerencias` }
+          : { type: "warning", message: "⚠️ Sin sugerencias" });
+      } catch (e) {
+        setSuggestions([]); setShowSuggestions(false);
+        setSearchStatus({ type: "error", message: `❌ ${e.message}` });
       } finally {
-        setIsSearching(false)
+        setIsSearching(false);
       }
-    }, 300)
+    }, 250);
   }
 
-  // Función para seleccionar una dirección de las sugerencias
   const selectAddress = async (placeId) => {
-    setIsSelectingAddress(true)
-    setShowSuggestions(false)
-    setHasSelectedSuggestion(true)
-    
+    setIsSelectingAddress(true);
+    setShowSuggestions(false);
+    setHasSelectedSuggestion(true);
+
     try {
-      const suggestion = suggestions.find(s => s.place_id === placeId)
-      if (!suggestion) {
-        throw new Error('Sugerencia no encontrada')
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) throw new Error('API Key no configurada');
+
+      const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "id,displayName,formattedAddress,location,addressComponents",
+        }
+      });
+
+      if (!resp.ok) throw new Error(`Details error ${resp.status}`);
+
+      const place = await resp.json();
+
+      const coords = place.location
+        ? { lat: place.location.latitude, lng: place.location.longitude }
+        : null;
+
+      if (coords) onLocationSelect(coords);
+
+      let street = "", city = "", district = "";
+      (place.addressComponents || []).forEach(c => {
+        const types = c.types || [];
+        if (types.includes("route") || types.includes("street_address")) {
+          street = c.longText || c.shortText || street;
+        }
+        if (types.includes("locality") || types.includes("administrative_area_level_2")) {
+          city = c.longText || c.shortText || city;
+        }
+        if (types.includes("sublocality") || types.includes("neighborhood")) {
+          district = c.longText || c.shortText || district;
+        }
+      });
+
+      setValue("linea1", street || place.displayName?.text || place.formattedAddress || "");
+      if (district) setValue("barrio", district);
+      if (city) setValue("municipio", city);
+
+      if (searchInputRef.current) {
+        searchInputRef.current.value = place.formattedAddress || place.displayName?.text || "";
       }
 
-      console.log('📍 HERE - Sugerencia seleccionada:', suggestion)
+      setAddressData({
+        ...watchedFields,
+        linea1: street || place.displayName?.text || place.formattedAddress || watchedFields.linea1 || "",
+        barrio: district || watchedFields.barrio || "",
+        municipio: city || watchedFields.municipio || ""
+      });
 
-      // Si la sugerencia tiene posición, actualizar mapa directamente
-      if (suggestion.position) {
-        const location = { 
-          lat: suggestion.position.lat, 
-          lng: suggestion.position.lng 
+      if (coords) {
+        const realAddressData = {
+          coordenadas: `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
+          direccion_completa: place.formattedAddress || 'Dirección no disponible',
+          municipio: city,
+          barrio: district,
+          componentes: place.addressComponents
         }
         
-        onLocationSelect(location)
-        
-        // Hacer reverse geocoding para obtener dirección real
-        await reverseGeocodeWithFetch(location)
-      } else {
-        // Si no tiene posición, hacer geocoding
-        await geocodeAddressWithFetch(suggestion.title)
+        onRealAddressUpdate?.(realAddressData)
       }
 
-      // Actualizar datos del formulario con setValue para que se vean en la UI
-      if (suggestion.address?.street || suggestion.title) {
-        setValue('linea1', suggestion.address?.street || suggestion.title || '')
-      }
-      if (suggestion.address?.district) {
-        setValue('barrio', suggestion.address?.district || '')
-      }
-      if (suggestion.address?.city) {
-        setValue('municipio', suggestion.address?.city || '')
-      }
-
-      // Limpiar el campo de búsqueda y poner la dirección seleccionada
-      if (searchInputRef.current) {
-        searchInputRef.current.value = suggestion.title || ''
-      }
-
-      // También actualizar addressData para mantener sincronización con el padre
-      const newData = {
-        ...watchedFields,
-        linea1: suggestion.address?.street || suggestion.title || watchedFields.linea1 || '',
-        barrio: suggestion.address?.district || watchedFields.barrio || '',
-        municipio: suggestion.address?.city || watchedFields.municipio || ''
-      }
-      
-      setAddressData(newData)
-      
-    } catch (error) {
-      console.error('❌ HERE - Error al seleccionar sugerencia:', error)
+    } catch (e) {
+      console.error('❌ GOOGLE - Error al obtener detalles:', e);
     } finally {
-      setIsSelectingAddress(false)
+      setIsSelectingAddress(false);
     }
   }
 
-  // Función para hacer geocoding con HERE API usando fetch
-  const geocodeAddressWithFetch = async (address) => {
+  const geocodeAddressWithGoogle = async (address) => {
     try {
-      const apiKey = import.meta.env.VITE_HERE_API_KEY
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
       if (!apiKey) {
-        throw new Error('HERE API Key no configurada')
+        throw new Error('Google API Key no configurada')
       }
 
-      console.log('🔍 HERE - Iniciando geocoding con fetch:', address)
+      const requestBody = {
+        textQuery: `${address}, Puerto Rico`,
+        maxResultCount: 1,
+        regionCode: 'PR',
+        languageCode: 'es'
+      }
 
-      const encodedAddress = encodeURIComponent(`${address}, Puerto Rico`)
-      const url = `https://geocode.search.hereapi.com/v1/geocode?q=${encodedAddress}&apiKey=${apiKey}&in=countryCode:PRI&limit=1`
-
-      const response = await fetch(url)
+      const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.addressComponents'
+        },
+        body: JSON.stringify(requestBody)
+      })
       
       if (!response.ok) {
         throw new Error(`Error en geocoding: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log('📍 HERE - Respuesta de geocoding:', data)
 
-      if (data.items && data.items.length > 0) {
-        const result = data.items[0]
-        const position = result.position
+      if (data.places && data.places.length > 0) {
+        const result = data.places[0]
+        const location = result.location
         
-        if (position && position.lat && position.lng) {
-          const location = { lat: position.lat, lng: position.lng }
+        if (location && location.latitude && location.longitude) {
+          const coords = { lat: location.latitude, lng: location.longitude }
           
-          // Actualizar ubicación
-          onLocationSelect(location)
+          onLocationSelect(coords)
+          await reverseGeocodeWithGoogle(coords)
           
-          // Hacer reverse geocoding para obtener la dirección "real"
-          await reverseGeocodeWithFetch(location)
-          
-          console.log('✅ HERE - Geocoding completado:', location)
-          return location
+          return coords
         }
       }
       
       throw new Error('No se encontraron resultados en geocoding')
     } catch (error) {
-      console.error('❌ HERE - Error en geocoding:', error)
+      console.error('❌ GOOGLE - Error en geocoding:', error)
       throw error
     }
   }
 
-  // Función para hacer reverse geocoding
-  const reverseGeocodeWithFetch = async (location) => {
+  const reverseGeocodeWithGoogle = async (location) => {
     try {
-      const apiKey = import.meta.env.VITE_HERE_API_KEY
-      if (!apiKey) {
-        throw new Error('HERE API Key no configurada')
+      if (!window.google || !window.google.maps) {
+        throw new Error('Google Maps JavaScript API no está cargada')
       }
-
-      console.log('🔄 HERE - Iniciando reverse geocoding:', location)
       
-      const url = `https://revgeocode.search.hereapi.com/v1/revgeocode?at=${location.lat},${location.lng}&lang=es&apiKey=${apiKey}`
+      const geocoder = new window.google.maps.Geocoder()
       
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        throw new Error(`Error en reverse geocoding: ${response.status} ${response.statusText}`)
-      }
+      const result = await new Promise((resolve, reject) => {
+        geocoder.geocode(
+          { 
+            location: { lat: location.lat, lng: location.lng },
+            language: 'es',
+            region: 'PR'
+          },
+          (results, status) => {
+            if (status === 'OK' && results && results.length > 0) {
+              resolve(results[0])
+            } else {
+              reject(new Error(`Geocoder error: ${status}`))
+            }
+          }
+        )
+      })
 
-      const data = await response.json()
-      console.log('🗺️ HERE - Respuesta de reverse geocoding:', data)
-
-      if (data.items && data.items.length > 0) {
-        const result = data.items[0]
-        const address = result.address
-        
-        const realAddressData = {
-          coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
-          direccion_completa: result.title || 'Dirección no disponible',
-          municipio: address?.city || '',
-          barrio: address?.district || address?.subdistrict || '',
-          componentes: address
+      let municipio = '', barrio = '', route = '', streetNumber = ''
+      for (let component of result.address_components || []) {
+        const types = component.types || []
+        if (types.includes('locality') || types.includes('administrative_area_level_2')) {
+          municipio = component.long_name || component.short_name || ''
         }
-        
-        onRealAddressUpdate?.(realAddressData)
-        console.log('🌍 HERE - DIRECCIÓN REAL de las coordenadas:', realAddressData)
+        if (types.includes('sublocality') || types.includes('neighborhood')) {
+          barrio = component.long_name || component.short_name || ''
+        }
+        if (types.includes('route')) {
+          route = component.long_name || component.short_name || ''
+        }
+        if (types.includes('street_number')) {
+          streetNumber = component.long_name || component.short_name || ''
+        }
       }
+      
+      const direccionLinea1 = streetNumber && route 
+        ? `${route} ${streetNumber}` 
+        : route || result.formatted_address?.split(',')[0] || ''
+      
+      const currentData = watchedFields
+      if (!currentData.linea1 && direccionLinea1) {
+        setValue('linea1', direccionLinea1)
+      }
+      if (!currentData.municipio && municipio) {
+        setValue('municipio', municipio)
+      }
+      if (!currentData.barrio && barrio) {
+        setValue('barrio', barrio)
+      }
+      
+      const realAddressData = {
+        coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+        direccion_completa: result.formatted_address || 'Dirección no disponible',
+        municipio: municipio,
+        barrio: barrio,
+        componentes: result.address_components,
+        source: 'maps_js_geocoder'
+      }
+      
+      onRealAddressUpdate?.(realAddressData)
+      
     } catch (error) {
-      console.error('❌ HERE - Error en reverse geocoding:', error)
+      console.error('❌ GOOGLE - Error en reverse geocoding:', error)
+      
+      const errorFallbackData = {
+        coordenadas: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+        direccion_completa: `Coordenadas: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)} (Error en reverse geocoding)`,
+        municipio: '',
+        barrio: '',
+        componentes: [],
+        source: 'error_fallback',
+        error: error.message
+      }
+      
+      onRealAddressUpdate?.(errorFallbackData)
     }
   }
 
-  // Función para validar coordenadas
   const validateCoordinates = (coordString) => {
-    // Limpiar el string
     const cleaned = coordString.trim().replace(/\s+/g, ' ')
     
-    // Patrones para diferentes formatos de coordenadas
     const patterns = [
-      // lat, lng (decimal)
       /^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/,
-      // lat lng (sin coma)
       /^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/,
-      // lat,lng (sin espacios)
       /^(-?\d+\.?\d*),(-?\d+\.?\d*)$/
     ]
     
@@ -461,8 +461,6 @@ function GoogleAddressForm({
         const lat = parseFloat(match[1])
         const lng = parseFloat(match[2])
         
-        // Validar rangos de Puerto Rico aproximados
-        // PR está entre: 17.9°N - 18.6°N, 65.2°W - 67.3°W
         if (lat >= 17.8 && lat <= 18.7 && lng >= -67.5 && lng <= -65.0) {
           return { lat, lng, valid: true, error: null }
         } else {
@@ -480,7 +478,6 @@ function GoogleAddressForm({
     }
   }
 
-  // Función para manejar input de coordenadas manuales
   const handleCoordinatesInput = async (value) => {
     setManualCoordinates(value)
     
@@ -503,16 +500,11 @@ function GoogleAddressForm({
 
     try {
       const { lat, lng } = validation
-
       const location = { lat, lng }
       
-      // Actualizar ubicación en el mapa
       onLocationSelect(location)
+      await reverseGeocodeWithGoogle(location)
       
-      // Hacer reverse geocoding
-      await reverseGeocodeWithFetch(location)
-      
-      // Crear datos detallados de coordenadas
       const detailedCoordinatesData = {
         coordinates: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
         precision: { level: 'Manual', description: 'Coordenadas ingresadas manualmente' },
@@ -522,10 +514,18 @@ function GoogleAddressForm({
       setCoordinatesData(detailedCoordinatesData)
       onCoordinatesDataUpdate?.(detailedCoordinatesData)
       
-      console.log('✅ HERE - Coordenadas validadas:', location)
+      const currentFormData = {
+        linea1: watchedFields.linea1 || '',
+        linea2: watchedFields.linea2 || '',
+        municipio: watchedFields.municipio || '',
+        barrio: watchedFields.barrio || '',
+        descripcion: watchedFields.descripcion || ''
+      }
+      
+      setAddressData(currentFormData)
       
     } catch (error) {
-      console.error('❌ HERE - Error validando coordenadas:', error)
+      console.error('❌ GOOGLE - Error validando coordenadas:', error)
       setCoordinatesError('Error al validar coordenadas')
     } finally {
       setIsValidatingCoords(false)
@@ -576,90 +576,14 @@ function GoogleAddressForm({
   //   }
   // }
 
-  // Función para manejar coordenadas manuales con Google Maps (deshabilitada - se usa handleCoordinatesInput)
-  /*
-  const handleManualCoordinatesSubmit = async () => {
-    const coords = parseCoordinates(manualCoordinates)
-    
-    if (!coords) {
-      setCoordinatesError('Formato de coordenadas inválido. Use: "lat, lng" o "lat,lng"')
-      return
-    }
-
-    setCoordinatesError('')
-    setIsValidatingCoords(true)
-    
-    if (!window.google || !window.google.maps) {
-      setCoordinatesError('Google Maps API no está cargada')
-      setIsValidatingCoords(false)
-      return
-    }
-    
-    const geocoder = new window.google.maps.Geocoder()
-    
-    try {
-      const result = await new Promise((resolve, reject) => {
-        geocoder.geocode({ 
-          location: { lat: coords.lat, lng: coords.lng } 
-        }, (results, status) => {
-          if (status === 'OK') {
-            resolve(results[0])
-          } else {
-            reject(new Error(`Error de geocodificación: ${status}`))
-          }
-        })
-      })
-
-      const addressData = {
-        coordinates: { lat: coords.lat, lng: coords.lng },
-        address: result.formatted_address,
-        components: result.address_components,
-        placeId: result.place_id,
-        source: 'manual_coordinates'
-      }
-
-      setCoordinatesData(addressData)
-      // setRealAddressFromCoords(addressData)
-      
-      // Llamar callbacks para notificar al padre
-      // if (onAddressSelect) {
-      //   onAddressSelect(addressData)
-      // }
-      // if (onDetailsUpdate) {
-      //   onDetailsUpdate({
-      //     submittedData: null,
-      //     realAddressFromCoords: addressData,
-      //     coordinatesData: addressData,
-      //     coordinatesError: '',
-      //     directGeocodingWarning: null
-      //   })
-      // }
-      
-    } catch (error) {
-      setCoordinatesError(`Error: ${error.message}`)
-    } finally {
-      setIsValidatingCoords(false)
-    }
-  }
-  */
-
-  // Función para manejar envío del formulario
   const onSubmit = async (data) => {
     try {
-      console.log('📝 HERE - Datos del formulario enviados:', data)
-      
       setAddressData(data)
-      // setSubmittedData({
-      //   ...data,
-      //   timestamp: new Date().toLocaleString()
-      // })
       setSearchStatus({ 
         type: 'success', 
         message: `✅ Formulario enviado | ${formatAddressForDisplay(data)}` 
       })
       
-      // Si no se ha seleccionado una sugerencia ni se han ingresado coordenadas manuales,
-      // intentar geocodificación directa de la dirección del formulario
       if (!hasSelectedSuggestion && !manualCoordinates) {
         const fullAddressParts = []
         if (data.linea1) fullAddressParts.push(data.linea1)
@@ -670,43 +594,17 @@ function GoogleAddressForm({
         const fullAddress = fullAddressParts.join(', ')
         const processedAddress = preprocessPuertoRicanAddress(fullAddress)
 
-        console.log('🔍 HERE - Intentando geocodificación directa de:', fullAddress)
-        console.log('🔄 HERE - Dirección procesada para HERE Maps:', processedAddress)
-
         try {
-          await geocodeAddressWithFetch(processedAddress)
+          await geocodeAddressWithGoogle(processedAddress)
         } catch {
-          console.log('❌ HERE - No se pudo geocodificar la dirección del formulario')
+          console.log('❌ GOOGLE - No se pudo geocodificar la dirección del formulario')
         }
       }
-      
-      // Llamar callbacks para notificar al padre
-      // if (onDetailsUpdate) {
-      //   onDetailsUpdate({
-      //     submittedData: {
-      //       ...data,
-      //       timestamp: new Date().toLocaleString()
-      //     },
-      //     realAddressFromCoords,
-      //     coordinatesData,
-      //     coordinatesError,
-      //     directGeocodingWarning
-      //   })
-      // }
       
     } catch (error) {
       console.error('❌ Google - Error en envío:', error)
     }
   }
-
-  // Actualizar datos cuando cambien los campos (con debounce para evitar bucles)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setAddressData(watchedFields)
-    }, 100) // Pequeño delay para evitar bucles
-
-    return () => clearTimeout(timeoutId)
-  }, [watchedFields, setAddressData])
 
   return (
     <div className="address-form">
@@ -716,7 +614,7 @@ function GoogleAddressForm({
         <div className="form-group">
           <label htmlFor="busqueda">Buscar Ubicación</label>
           <small style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.5rem', display: 'block' }}>
-            Busca direcciones urbanas, rurales (KM), barrios, sectores, negocios, puntos de referencia con HERE Maps
+            Busca direcciones urbanas, rurales (KM), barrios, sectores, negocios, puntos de referencia con Google Places API (New)
           </small>
           <div className="search-container">
             <input
@@ -729,7 +627,7 @@ function GoogleAddressForm({
             />
             {isSearching && (
               <div className="search-loading">
-                <span>Buscando direcciones con HERE Maps...</span>
+                <span>Buscando direcciones con Google Places API (New)...</span>
               </div>
             )}
             {isSelectingAddress && (
@@ -847,7 +745,7 @@ function GoogleAddressForm({
               placeholder="Ej: Pueblo, Centro, etc."
             />
             <small style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-              💡 Tip: Si seleccionas una ubicación de la búsqueda, intentaremos llenar este campo automáticamente
+              Si seleccionas una ubicación de la búsqueda, intentaremos llenar este campo automáticamente
             </small>
           </div>
         </div>

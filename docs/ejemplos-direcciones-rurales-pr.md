@@ -1,5 +1,8 @@
 # Ejemplos de Direcciones Rurales de Puerto Rico
 
+32 Calle Munoz Rivera, Aguas Buenas, Aguas Buenas, Puerto Rico 00703
+18.256572,-66.104157
+
 ## 🛣️ **Direcciones Rurales con Carreteras y KM**
 
 ### **Carreteras Estatales (PR)**

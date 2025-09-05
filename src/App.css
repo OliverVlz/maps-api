@@ -1090,3 +1090,196 @@
     align-items: flex-start;
   }
 }
+
+/* =================================
+   MAPBOX SPECIFIC STYLES
+   ================================= */
+
+/* Estilos específicos para coordenadas de Mapbox */
+.mapbox-coordinates {
+  border: 2px solid #7c3aed;
+  background: #faf5ff;
+}
+
+.mapbox-coordinates summary h4 {
+  color: #7c3aed;
+  background: #ede9fe;
+  margin: -1rem -1rem 1rem -1rem;
+  padding: 1rem;
+  border-radius: 6px 6px 0 0;
+}
+
+.mapbox-coordinates .coordinates-content {
+  background: white;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.mapbox-tech-info {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.mapbox-tech-info h5 {
+  color: #7c3aed;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mapbox-tech-info .tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.mapbox-tech-info .tech-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mapbox-tech-info .tech-item label {
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.mapbox-tech-info .tech-item span {
+  color: #1f2937;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Validación específica de Mapbox */
+.mapbox-validation {
+  border: 2px solid #7c3aed;
+  background: #faf5ff;
+}
+
+.mapbox-validation summary {
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 600;
+  border-radius: 6px 6px 0 0;
+  margin: -1.5rem -1.5rem 0 -1.5rem;
+  padding: 1rem 1.5rem;
+}
+
+.mapbox-validation .validation-content {
+  margin-top: 1rem;
+}
+
+.mapbox-info {
+  background: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-left: 4px solid #0ea5e9;
+}
+
+/* Popup personalizado para Mapbox */
+.mapbox-popup .mapboxgl-popup-content {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3f4f6 100%);
+  border: 2px solid #7c3aed;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
+  padding: 18px;
+  max-width: 320px;
+  font-family: inherit;
+}
+
+.mapbox-popup .mapboxgl-popup-tip {
+  border-top-color: #7c3aed;
+}
+
+.mapbox-popup .popup-content h4 {
+  margin: 0 0 12px 0;
+  color: #7c3aed;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mapbox-popup .popup-content p {
+  margin: 8px 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.mapbox-popup .popup-content strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.mapbox-popup .popup-content small {
+  color: #7c3aed;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* Información de ubicación específica para Mapbox */
+.mapbox-map-container .location-info {
+  background: linear-gradient(135deg, #faf5ff 0%, #f9fafb 100%);
+  border: 1px solid #e9d5ff;
+  border-left: 4px solid #7c3aed;
+}
+
+/* Estilos para el selector de estilo de mapa */
+.mapbox-map-container .map-controls select {
+  background: linear-gradient(135deg, #faf5ff 0%, white 100%);
+  border: 2px solid #e9d5ff;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+.mapbox-map-container .map-controls select:hover {
+  border-color: #7c3aed;
+  background: #faf5ff;
+}
+
+.mapbox-map-container .map-controls select:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+/* Loading específico para Mapbox */
+.mapbox-map-container .mapbox-loading {
+  background: rgba(250, 245, 255, 0.95);
+  backdrop-filter: blur(4px);
+}
+
+.mapbox-map-container .mapbox-loading h3 {
+  color: #7c3aed;
+}
+
+/* Responsive para elementos específicos de Mapbox */
+@media (max-width: 768px) {
+  .mapbox-tech-info .tech-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .mapbox-popup .mapboxgl-popup-content {
+    max-width: 280px;
+    padding: 14px;
+  }
+  
+  .mapbox-popup .popup-content h4 {
+    font-size: 1rem;
+  }
+  
+  .mapbox-popup .popup-content p {
+    font-size: 0.85rem;
+  }
+}

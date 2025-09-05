@@ -5,13 +5,22 @@ function HereAddressDetails({
   addressData, 
   coordinatesData
 }) {
+  // Validar que addressData tenga valores de string válidos
+  const safeAddressData = {
+    linea1: typeof addressData?.linea1 === 'string' ? addressData.linea1 : '',
+    linea2: typeof addressData?.linea2 === 'string' ? addressData.linea2 : '',
+    municipio: typeof addressData?.municipio === 'string' ? addressData.municipio : '',
+    barrio: typeof addressData?.barrio === 'string' ? addressData.barrio : '',
+    descripcion: typeof addressData?.descripcion === 'string' ? addressData.descripcion : ''
+  }
+
   // Funciones auxiliares para validación de direcciones
   const formatUserAddress = () => {
     const parts = []
-    if (addressData.linea1) parts.push(addressData.linea1)
-    if (addressData.linea2) parts.push(addressData.linea2)
-    if (addressData.barrio) parts.push(addressData.barrio)
-    if (addressData.municipio) parts.push(`${addressData.municipio}, PR`)
+    if (safeAddressData.linea1) parts.push(safeAddressData.linea1)
+    if (safeAddressData.linea2) parts.push(safeAddressData.linea2)
+    if (safeAddressData.barrio) parts.push(safeAddressData.barrio)
+    if (safeAddressData.municipio) parts.push(`${safeAddressData.municipio}, PR`)
     return parts.join(', ')
   }
 
@@ -37,9 +46,9 @@ function HereAddressDetails({
     if (!realAddressFromCoords) return false
     
     const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
+    const userMunicipio = (safeAddressData.municipio || '').toLowerCase()
     const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
+    const userBarrio = (safeAddressData.barrio || '').toLowerCase()
     
     const municipioMatch = realMunicipio === userMunicipio
     const barrioMatch = realBarrio === userBarrio || realBarrio.includes(userBarrio) || userBarrio.includes(realBarrio)
@@ -52,20 +61,20 @@ function HereAddressDetails({
     
     const messages = []
     const realMunicipio = realAddressFromCoords.municipio.toLowerCase()
-    const userMunicipio = (addressData.municipio || '').toLowerCase()
+    const userMunicipio = (safeAddressData.municipio || '').toLowerCase()
     const realBarrio = realAddressFromCoords.barrio.toLowerCase()
-    const userBarrio = (addressData.barrio || '').toLowerCase()
+    const userBarrio = (safeAddressData.barrio || '').toLowerCase()
     
     if (realMunicipio && userMunicipio && realMunicipio !== userMunicipio) {
-      messages.push(`Municipio: HERE Maps dice "${realAddressFromCoords.municipio}", pero escribiste "${addressData.municipio}"`)
+      messages.push(`Municipio: HERE Maps dice "${realAddressFromCoords.municipio}", pero escribiste "${safeAddressData.municipio}"`)
     }
     
     if (realBarrio && userBarrio && !realBarrio.includes(userBarrio) && !userBarrio.includes(realBarrio)) {
-      messages.push(`Barrio: HERE Maps dice "${realAddressFromCoords.barrio}", pero escribiste "${addressData.barrio}"`)
+      messages.push(`Barrio: HERE Maps dice "${realAddressFromCoords.barrio}", pero escribiste "${safeAddressData.barrio}"`)
     }
     
     if (!realBarrio && userBarrio) {
-      messages.push(`Barrio: Escribiste "${addressData.barrio}" pero HERE Maps no detecta un barrio específico en esta coordenada`)
+      messages.push(`Barrio: Escribiste "${safeAddressData.barrio}" pero HERE Maps no detecta un barrio específico en esta coordenada`)
     }
     
     return messages
@@ -115,8 +124,8 @@ function HereAddressDetails({
                 <h5>✏️ Tu dirección ingresada:</h5>
                 <p className="address-text">{formatUserAddress()}</p>
                 <div className="address-details">
-                  <p><strong>Municipio:</strong> {addressData.municipio || 'No especificado'}</p>
-                  <p><strong>Barrio:</strong> {addressData.barrio || 'No especificado'}</p>
+                  <p><strong>Municipio:</strong> {safeAddressData.municipio || 'No especificado'}</p>
+                  <p><strong>Barrio:</strong> {safeAddressData.barrio || 'No especificado'}</p>
                 </div>
               </div>
             </div>

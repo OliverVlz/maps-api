@@ -1,10 +1,102 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 function GoogleAddressDetails({ 
   realAddressFromCoords, 
   addressData, 
-  coordinatesData
+  coordinatesData,
+  onValidateAddress
 }) {
+  // Estados para Address Validation API
+  const [validationResult, setValidationResult] = useState(null)
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationError, setValidationError] = useState('')
+
+  // Función para validar dirección con Address Validation API
+  const handleValidateAddress = async () => {
+    if (!addressData.linea1 || !addressData.municipio) {
+      setValidationError('Se requiere al menos Línea 1 y Municipio para validar')
+      return
+    }
+
+    setIsValidating(true)
+    setValidationError('')
+    setValidationResult(null)
+
+    try {
+      // Construir addressLines según formato esperado por la API
+      const addressLines = [
+        addressData.linea1,
+        addressData.linea2 || '',
+        addressData.barrio || '',
+        `${addressData.municipio}, PR`
+      ].filter(line => line.trim() !== '')
+
+      console.log('📮 Enviando solicitud a:', '/api/validate-address', 'con datos:', {
+        addressLines,
+        regionCode: 'PR'
+      });
+
+      const response = await fetch('/api/validate-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          addressLines: addressLines,
+          regionCode: 'PR'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status} ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      setValidationResult(result)
+
+      // Notificar al componente padre si se proporciona callback
+      if (onValidateAddress) {
+        onValidateAddress(result)
+      }
+
+    } catch (error) {
+      console.error('❌ Error en Address Validation:', error)
+      setValidationError(`Error: ${error.message}`)
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  // Función para interpretar el resultado de validación
+  const getValidationStatus = () => {
+    if (!validationResult?.result?.verdict) return null
+
+    const verdict = validationResult.result.verdict
+    const hasConfirmedComponents = verdict.hasConfirmedComponents
+    const hasInferredComponents = verdict.hasInferredComponents
+    const hasUnconfirmedComponents = verdict.hasUnconfirmedComponents
+
+    if (hasConfirmedComponents && !hasUnconfirmedComponents) {
+      return { type: 'success', message: '✅ Dirección completamente validada' }
+    }
+    if (hasInferredComponents) {
+      return { type: 'warning', message: '⚠️ Dirección parcialmente validada (algunos componentes inferidos)' }
+    }
+    if (hasUnconfirmedComponents) {
+      return { type: 'error', message: '❌ Dirección no confirmada (componentes no válidos)' }
+    }
+    return { type: 'info', message: 'ℹ️ Validación completada' }
+  }
+  // Debug: Log para verificar qué datos llegan al componente (SOLO cuando realAddressFromCoords cambia)
+  React.useEffect(() => {
+    if (realAddressFromCoords) {
+      console.log('🎯 GoogleAddressDetails - realAddressFromCoords recibido:', realAddressFromCoords)
+    }
+  }, [realAddressFromCoords])
+
+  React.useEffect(() => {
+    if (coordinatesData) {
+      console.log('📊 GoogleAddressDetails - coordinatesData recibido:', coordinatesData)
+    }
+  }, [coordinatesData])
   // Funciones auxiliares para validación de direcciones
   const formatUserAddress = () => {
     const parts = []
@@ -138,6 +230,100 @@ function GoogleAddressDetails({
         </details>
       )}
 
+      {/* Nueva sección: Address Validation API */}
+      <details className="address-validation-api">
+        <summary><h4>🔬 Validación con Google Address Validation API</h4></summary>
+        <div className="validation-api-content">
+          <div className="validation-api-info">
+            <p>Valida tu dirección usando Google Address Validation API para obtener confirmación oficial de USPS y correcciones/normalizaciones.</p>
+          </div>
+
+          <div className="validation-api-controls">
+            <button 
+              onClick={handleValidateAddress}
+              disabled={isValidating || !addressData.linea1 || !addressData.municipio}
+              className="validate-btn"
+            >
+              {isValidating ? '🔄 Validando...' : '🔬 Validar Dirección'}
+            </button>
+            
+            {!addressData.linea1 || !addressData.municipio ? (
+              <small style={{ color: '#ef4444', marginTop: '0.5rem', display: 'block' }}>
+                Se requiere al menos Línea 1 y Municipio para validar
+              </small>
+            ) : null}
+          </div>
+
+          {validationError && (
+            <div className="validation-api-error">
+              <h6>❌ Error en validación:</h6>
+              <p>{validationError}</p>
+            </div>
+          )}
+
+          {validationResult && (
+            <div className="validation-api-results">
+              {(() => {
+                const status = getValidationStatus()
+                return status ? (
+                  <div className={`validation-status ${status.type}`}>
+                    <h6>{status.message}</h6>
+                  </div>
+                ) : null
+              })()}
+
+              {validationResult.result?.address?.formattedAddress && (
+                <div className="validated-address">
+                  <h6>📮 Dirección normalizada por USPS:</h6>
+                  <p className="formatted-address">{validationResult.result.address.formattedAddress}</p>
+                </div>
+              )}
+
+              {validationResult.result?.geocode?.location && (
+                <div className="validated-geocode">
+                  <h6>🌍 Coordenadas validadas:</h6>
+                  <p>
+                    {validationResult.result.geocode.location.latitude.toFixed(6)}, 
+                    {validationResult.result.geocode.location.longitude.toFixed(6)}
+                  </p>
+                  
+                  {realAddressFromCoords && (
+                    <div className="coordinate-comparison">
+                      <p><strong>Comparación con coordenadas del mapa:</strong></p>
+                      <p>Mapa: {realAddressFromCoords.coordenadas}</p>
+                      <p>API: {validationResult.result.geocode.location.latitude.toFixed(6)}, {validationResult.result.geocode.location.longitude.toFixed(6)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {validationResult.result?.verdict && (
+                <div className="validation-details">
+                  <h6>📋 Detalles de validación:</h6>
+                  <ul>
+                    {validationResult.result.verdict.hasConfirmedComponents && (
+                      <li>✅ Componentes confirmados por USPS</li>
+                    )}
+                    {validationResult.result.verdict.hasInferredComponents && (
+                      <li>⚠️ Algunos componentes fueron inferidos</li>
+                    )}
+                    {validationResult.result.verdict.hasUnconfirmedComponents && (
+                      <li>❌ Algunos componentes no pudieron ser confirmados</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              <details className="validation-raw-data">
+                <summary><h6>🔍 Datos completos de la API</h6></summary>
+                <pre style={{ fontSize: '0.75rem', overflow: 'auto', maxHeight: '300px' }}>
+                  {JSON.stringify(validationResult, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+      </details>
 
     </div>
   )
