@@ -5,6 +5,19 @@ function MapboxAddressDetails({
   addressData, 
   coordinatesData
 }) {
+  // Debug: Log cuando se reciben datos
+  React.useEffect(() => {
+    if (realAddressFromCoords) {
+      console.log('📊 MapboxAddressDetails recibió realAddressFromCoords:', realAddressFromCoords)
+    }
+    if (coordinatesData) {
+      console.log('📍 MapboxAddressDetails recibió coordinatesData:', coordinatesData)
+    }
+    if (addressData) {
+      console.log('📝 MapboxAddressDetails recibió addressData:', addressData)
+    }
+  }, [realAddressFromCoords, coordinatesData, addressData])
+
   // Validar que addressData tenga valores de string válidos
   const safeAddressData = {
     linea1: typeof addressData?.line1 === 'string' ? addressData.line1 : 
@@ -153,32 +166,6 @@ function MapboxAddressDetails({
                 </small></p>
               </div>
             )}
-
-            <div className="mapbox-features">
-              <h5>🗺️ Características de Mapbox:</h5>
-              <div className="features-grid">
-                <div className="feature-item">
-                  <span>🚀</span>
-                  <strong>Mapas Vectoriales</strong>
-                  <p>Renderizado rápido y suave, ideal para aplicaciones web modernas</p>
-                </div>
-                <div className="feature-item">
-                  <span>🌍</span>
-                  <strong>Datos OpenStreetMap</strong>
-                  <p>Información geográfica colaborativa y actualizada frecuentemente</p>
-                </div>
-                <div className="feature-item">
-                  <span>📱</span>
-                  <strong>Responsive</strong>
-                  <p>Optimizado para dispositivos móviles y diferentes tamaños de pantalla</p>
-                </div>
-                <div className="feature-item">
-                  <span>🎨</span>
-                  <strong>Personalizable</strong>
-                  <p>Estilos de mapa altamente personalizables y temas múltiples</p>
-                </div>
-              </div>
-            </div>
           </div>
         </details>
       )}
@@ -237,44 +224,6 @@ function MapboxAddressDetails({
           </div>
         </details>
       )}
-
-      <div className="mapbox-comparison">
-        <details className="comparison-info">
-          <summary><h4>🔍 Comparación: Mapbox vs HERE Maps</h4></summary>
-          <div className="comparison-content">
-            <div className="comparison-grid">
-              <div className="provider-comparison">
-                <h5>🗺️ Mapbox</h5>
-                <ul>
-                  <li>✅ Mapas vectoriales ultra rápidos</li>
-                  <li>✅ Excelente personalización visual</li>
-                  <li>✅ Datos OpenStreetMap actualizados</li>
-                  <li>✅ Optimizado para web y mobile</li>
-                  <li>✅ Estilos de mapa múltiples</li>
-                  <li>⚠️ Menor cobertura en áreas rurales</li>
-                </ul>
-              </div>
-              <div className="provider-comparison">
-                <h5>🧭 HERE Maps</h5>
-                <ul>
-                  <li>✅ Excelente para navegación</li>
-                  <li>✅ Datos detallados de tráfico</li>
-                  <li>✅ Mejor en direcciones comerciales</li>
-                  <li>✅ Mapas offline avanzados</li>
-                  <li>⚠️ Interfaz menos moderna</li>
-                  <li>⚠️ Menos personalización visual</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="recommendation">
-              <h6>💡 Recomendación de Uso:</h6>
-              <p><strong>Usa Mapbox para:</strong> Aplicaciones web modernas, interfaces elegantes, mapas personalizados</p>
-              <p><strong>Usa HERE para:</strong> Navegación precisa, datos comerciales detallados, aplicaciones de transporte</p>
-            </div>
-          </div>
-        </details>
-      </div>
     </div>
   )
 }

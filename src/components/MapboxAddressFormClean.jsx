@@ -6,7 +6,8 @@ const MapboxAddressFormClean = ({
   addressData, 
   setAddressData, 
   onAddressSelect, 
-  onRealAddressUpdate
+  onRealAddressUpdate,
+  onCoordinatesDataUpdate
 }) => {
   // Estados locales
   const [searchStatus, setSearchStatus] = useState(null)
@@ -37,6 +38,94 @@ const MapboxAddressFormClean = ({
   const watchedFields = watch()
   const lastSentHashRef = useRef('')
   const coordinatesTimeoutRef = useRef(null)
+
+  // ⭐ Función para estructurar datos de dirección real (compatible con detalles)
+  const createRealAddressData = useCallback((feature, lat, lng, source = 'geocoding') => {
+    const props = feature.properties || {}
+    
+    // Extraer dirección principal de manera robusta
+    let direccionCompleta = ''
+    
+    // Para autofill, usar address_line1 que es más confiable
+    if (source === 'autofill' && props.address_line1) {
+      direccionCompleta = props.address_line1
+    }
+    // Para geocoding/reverse geocoding
+    else if (props.address) {
+      direccionCompleta = props.address
+    } else if (feature.text) {
+      if (props.house_number) {
+        direccionCompleta = `${feature.text} ${props.house_number}`
+      } else {
+        direccionCompleta = feature.text
+      }
+    } else if (feature.place_name) {
+      const parts = feature.place_name.split(',')
+      direccionCompleta = parts[0].trim()
+    } else {
+      direccionCompleta = `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    }
+    
+    // Extraer municipio
+    let municipio = ''
+    if (feature.context && Array.isArray(feature.context)) {
+      const place = feature.context.find(item => 
+        item.id && (item.id.includes('place') || item.id.includes('locality'))
+      )
+      if (place && place.text) {
+        municipio = place.text
+      }
+    }
+    
+    // Extraer barrio/distrito (si está disponible)
+    let barrio = ''
+    if (feature.context && Array.isArray(feature.context)) {
+      const neighborhood = feature.context.find(item => 
+        item.id && item.id.includes('neighborhood')
+      )
+      if (neighborhood && neighborhood.text) {
+        barrio = neighborhood.text
+      }
+    }
+    
+    // Estructura compatible con HereAddressDetails
+    const realAddressData = {
+      coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      direccion_completa: direccionCompleta,
+      municipio: municipio || '',
+      barrio: barrio || '',
+      componentes: {
+        // Mapear componentes de Mapbox a formato similar a HERE
+        address: direccionCompleta,
+        city: municipio,
+        district: barrio,
+        postalCode: feature.context?.find(item => item.id?.includes('postcode'))?.text || props.postcode || '',
+        country: 'Puerto Rico',
+        fullAddress: feature.place_name || direccionCompleta
+      },
+      source: source, // 'autofill', 'manual', 'coordinates'
+      originalFeature: feature // Mantener datos originales para debug
+    }
+    
+    return realAddressData
+  }, [])
+
+  // ⭐ Función para crear datos de coordenadas (compatible con detalles)
+  const createCoordinatesData = useCallback((lat, lng, source = 'coordinates', address = null) => {
+    return {
+      lat: lat,
+      lng: lng,
+      coordinates: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      source: source,
+      timestamp: new Date().toISOString(),
+      // Campos adicionales que espera MapboxAddressDetails
+      address: address || `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      precision: {
+        level: 'high', // Mapbox generalmente tiene buena precisión
+        description: 'Precisión alta proporcionada por Mapbox'
+      }
+    }
+  }, [])
 
   // ⭐ Geocodificar dirección manual para buscar en el mapa
   const geocodeManualAddress = useCallback(async (addressData) => {
@@ -82,6 +171,21 @@ const MapboxAddressFormClean = ({
         
         console.log('✅ Coordenadas encontradas:', { lat, lng })
         
+        // Crear datos estructurados para los detalles
+        const realAddressData = createRealAddressData(feature, lat, lng, 'manual')
+        const coordinatesData = createCoordinatesData(lat, lng, 'manual', realAddressData.direccion_completa)
+        
+        // Enviar datos a los componentes de detalles
+        if (onRealAddressUpdate) {
+          onRealAddressUpdate(realAddressData)
+          console.log('📊 Datos de dirección real enviados (manual):', realAddressData)
+        }
+        
+        if (onCoordinatesDataUpdate) {
+          onCoordinatesDataUpdate(coordinatesData)
+          console.log('📍 Datos de coordenadas enviados (manual):', coordinatesData)
+        }
+        
         // Actualizar el mapa con las coordenadas encontradas
         if (onAddressSelect) {
           onAddressSelect({ 
@@ -117,7 +221,7 @@ const MapboxAddressFormClean = ({
     } finally {
       setIsGeocodingManual(false)
     }
-  }, [onAddressSelect])
+  }, [onAddressSelect, createRealAddressData, createCoordinatesData, onRealAddressUpdate, onCoordinatesDataUpdate])
 
   // ⭐ Validar y procesar coordenadas manuales
   const validateCoordinates = useCallback((coordsString) => {
@@ -184,42 +288,113 @@ const MapboxAddressFormClean = ({
       console.log('✅ Coordenadas válidas:', { lat, lng })
       
       // Hacer reverse geocoding para obtener la dirección
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?` +
+      const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?` +
         `access_token=${import.meta.env.VITE_MAPBOX_API_KEY}&` +
         `language=es&` +
-        `types=address,poi,place`
-      )
+        `country=pr&` +
+        `types=address,poi,place,postcode,locality,neighborhood&` +
+        `limit=1&` +
+        `routing=false`
+      
+      console.log('🌐 Llamando a Mapbox Geocoding API:', geocodingUrl.replace(import.meta.env.VITE_MAPBOX_API_KEY, 'API_KEY_HIDDEN'))
+      console.log('🌐 Coordenadas a procesar:', { lat, lng })
+      
+      const response = await fetch(geocodingUrl)
       
       if (!response.ok) {
-        throw new Error(`Reverse geocoding error: ${response.status}`)
+        const errorText = await response.text()
+        console.error('❌ Mapbox API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        })
+        throw new Error(`Mapbox API error ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
       console.log('🗺️ Reverse geocoding response:', data)
+      console.log('🗺️ Features encontrados:', data.features?.length || 0)
       
       if (data.features && data.features.length > 0) {
         const feature = data.features[0]
-        const props = feature.properties
+        const props = feature.properties || {}
+        console.log('🏠 Feature seleccionado:', feature)
+        console.log('🏠 Properties:', props)
+        console.log('🏠 Place name:', feature.place_name)
+        console.log('🏠 Context:', feature.context)
         
-        // Autocompletar formulario con datos del reverse geocoding
+        // Extraer dirección de manera más robusta
+        let addressLine1 = ''
+        
+        // Prioridad 1: Usar address del properties
         if (props.address) {
-          setValue('line1', props.address)
-        } else if (feature.place_name) {
-          const addressPart = feature.place_name.split(',')[0]
-          setValue('line1', addressPart)
+          addressLine1 = props.address
+        }
+        // Prioridad 2: Usar house_number + text si están disponibles
+        else if (feature.text) {
+          if (props.house_number) {
+            addressLine1 = `${feature.text} ${props.house_number}`
+          } else {
+            addressLine1 = feature.text
+          }
+        }
+        // Prioridad 3: Extraer la primera parte del place_name
+        else if (feature.place_name) {
+          const parts = feature.place_name.split(',')
+          addressLine1 = parts[0].trim()
+        }
+        // Fallback: Mostrar coordenadas formateadas
+        else {
+          addressLine1 = `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`
         }
         
-        // Municipio desde context
+        console.log('🏠 Dirección extraída:', addressLine1)
+        
+        // Actualizar campo de dirección
+        if (addressLine1) {
+          setValue('line1', addressLine1)
+        }
+        
+        // Extraer municipio desde context
+        let municipio = ''
         if (feature.context && Array.isArray(feature.context)) {
-          const place = feature.context.find(item => item.id && item.id.includes('place'))
+          // Buscar place (municipio)
+          const place = feature.context.find(item => 
+            item.id && (item.id.includes('place') || item.id.includes('locality'))
+          )
           if (place && place.text) {
-            setValue('municipio', place.text)
+            municipio = place.text
+            setValue('municipio', municipio)
+            console.log('🏛️ Municipio encontrado:', municipio)
+          }
+          
+          // Buscar código postal si está disponible
+          const postcode = feature.context.find(item => 
+            item.id && item.id.includes('postcode')
+          )
+          if (postcode && postcode.text) {
+            setValue('zipCode', postcode.text)
+            console.log('📮 Código postal encontrado:', postcode.text)
           }
         }
         
         // Estado siempre Puerto Rico
         setValue('state', 'Puerto Rico')
+        
+        // Crear datos estructurados para los detalles
+        const realAddressData = createRealAddressData(feature, lat, lng, 'coordinates')
+        const coordinatesData = createCoordinatesData(lat, lng, 'coordinates', realAddressData.direccion_completa)
+        
+        // Enviar datos a los componentes de detalles
+        if (onRealAddressUpdate) {
+          onRealAddressUpdate(realAddressData)
+          console.log('📊 Datos de dirección real enviados (coordenadas):', realAddressData)
+        }
+        
+        if (onCoordinatesDataUpdate) {
+          onCoordinatesDataUpdate(coordinatesData)
+          console.log('📍 Datos de coordenadas enviados:', coordinatesData)
+        }
         
         // Actualizar el mapa
         if (onAddressSelect) {
@@ -230,22 +405,57 @@ const MapboxAddressFormClean = ({
             source: 'coordinates',
             coordinates: `${lat}, ${lng}`,
             formData: {
-              line1: props.address || feature.place_name.split(',')[0],
-              municipio: feature.context?.find(item => item.id?.includes('place'))?.text || '',
-              state: 'Puerto Rico'
+              line1: addressLine1,
+              municipio: municipio || '',
+              state: 'Puerto Rico',
+              zipCode: feature.context?.find(item => item.id?.includes('postcode'))?.text || ''
             }
           })
         }
         
         setSearchStatus({
           type: 'success',
-          message: '✅ Coordenadas procesadas y dirección encontrada'
+          message: `✅ Coordenadas procesadas: ${addressLine1}${municipio ? `, ${municipio}` : ''}`
         })
         
       } else {
         console.log('⚠️ No se encontró dirección para las coordenadas')
         
         // Aún así actualizar el mapa con las coordenadas
+        const fallbackAddress = `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        setValue('line1', fallbackAddress)
+        setValue('state', 'Puerto Rico')
+        
+        // Crear datos estructurados básicos para los detalles (sin feature)
+        const basicRealAddressData = {
+          coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          direccion_completa: fallbackAddress,
+          municipio: '',
+          barrio: '',
+          componentes: {
+            address: fallbackAddress,
+            city: '',
+            district: '',
+            postalCode: '',
+            country: 'Puerto Rico',
+            fullAddress: fallbackAddress
+          },
+          source: 'coordinates',
+          originalFeature: null
+        }
+        const coordinatesData = createCoordinatesData(lat, lng, 'coordinates', fallbackAddress)
+        
+        // Enviar datos a los componentes de detalles
+        if (onRealAddressUpdate) {
+          onRealAddressUpdate(basicRealAddressData)
+          console.log('📊 Datos básicos de coordenadas enviados:', basicRealAddressData)
+        }
+        
+        if (onCoordinatesDataUpdate) {
+          onCoordinatesDataUpdate(coordinatesData)
+          console.log('📍 Datos de coordenadas enviados:', coordinatesData)
+        }
+        
         if (onAddressSelect) {
           onAddressSelect({ 
             lat, 
@@ -253,7 +463,7 @@ const MapboxAddressFormClean = ({
             source: 'coordinates',
             coordinates: `${lat}, ${lng}`,
             formData: {
-              line1: `Coordenadas: ${lat}, ${lng}`,
+              line1: fallbackAddress,
               state: 'Puerto Rico'
             }
           })
@@ -267,15 +477,15 @@ const MapboxAddressFormClean = ({
       
     } catch (error) {
       console.error('❌ Error procesando coordenadas:', error)
-      setCoordinatesError('❌ Error al procesar coordenadas')
+      setCoordinatesError(`❌ Error al procesar coordenadas: ${error.message}`)
       setSearchStatus({
         type: 'error',
-        message: '❌ Error al procesar coordenadas'
+        message: `❌ Error al procesar coordenadas: ${error.message}`
       })
     } finally {
       setIsValidatingCoords(false)
     }
-  }, [validateCoordinates, setValue, onAddressSelect])
+  }, [validateCoordinates, setValue, onAddressSelect, createRealAddressData, createCoordinatesData, onRealAddressUpdate, onCoordinatesDataUpdate])
 
   // ⭐ Manejar cambio en el input de coordenadas con procesamiento automático
   const handleCoordinatesChange = useCallback(async (e) => {
@@ -319,15 +529,27 @@ const MapboxAddressFormClean = ({
   // ⭐ Manejar selección de AddressAutofill
   const handleAutofillRetrieve = useCallback((e) => {
     console.log('📍 AddressAutofill onRetrieve triggered:', e)
+    console.log('📍 Event structure:', {
+      hasFeatures: !!e?.features,
+      featuresLength: e?.features?.length,
+      firstFeature: e?.features?.[0],
+      eventKeys: Object.keys(e || {})
+    })
+    
     const feature = e?.features?.[0]
     if (!feature) {
       console.log('❌ No feature found in retrieve event')
+      console.log('❌ Event data:', e)
       return
     }
 
     console.log('✅ Feature found:', feature)
+    console.log('✅ Feature properties:', feature.properties)
+    console.log('✅ Feature geometry:', feature.geometry)
     const props = feature.properties
     const [lng, lat] = feature.geometry?.coordinates || []
+    
+    console.log('✅ Extracted coordinates:', { lat, lng })
     
     // Mapear los campos del autofill a nuestro formulario
     if (props.address_line1) {
@@ -372,6 +594,21 @@ const MapboxAddressFormClean = ({
       message: '✅ Dirección encontrada y autocompletada'
     })
     
+    // Crear datos estructurados para los detalles
+    const realAddressData = createRealAddressData(feature, lat, lng, 'autofill')
+    const coordinatesData = createCoordinatesData(lat, lng, 'autofill', realAddressData.direccion_completa)
+    
+    // Enviar datos a los componentes de detalles
+    if (onRealAddressUpdate) {
+      onRealAddressUpdate(realAddressData)
+      console.log('📊 Datos de dirección real enviados:', realAddressData)
+    }
+    
+    if (onCoordinatesDataUpdate) {
+      onCoordinatesDataUpdate(coordinatesData)
+      console.log('📍 Datos de coordenadas enviados:', coordinatesData)
+    }
+    
     // Callback para el componente padre - incluir más información
     if (onAddressSelect) {
       onAddressSelect({ 
@@ -389,12 +626,13 @@ const MapboxAddressFormClean = ({
         }
       })
     }
-  }, [setValue, onAddressSelect])
+  }, [setValue, onAddressSelect, createRealAddressData, createCoordinatesData, onRealAddressUpdate, onCoordinatesDataUpdate])
 
   // Manejo del input de búsqueda
   const handleInputChange = useCallback((e) => {
     const value = e.target.value
     console.log('🔍 Input changed:', value)
+    
     if (value.length > 2) {
       setSearchStatus({
         type: 'info',
@@ -406,6 +644,58 @@ const MapboxAddressFormClean = ({
       console.log('🔍 Clearing search status')
     }
   }, [])
+
+  // Fallback: Detectar selección por cambio abrupto en el input
+  const lastInputRef = useRef('')
+  
+  const handleInputChangeWithFallback = useCallback((e) => {
+    const value = e.target.value
+    const previousValue = lastInputRef.current
+    
+    console.log('🔍 Input change detected:', { 
+      newValue: value, 
+      previousValue: previousValue,
+      lengthDiff: Math.abs(value.length - previousValue.length)
+    })
+    
+    // Si el cambio es abrupto (más de 10 caracteres de diferencia), 
+    // probablemente sea una selección de autofill
+    if (previousValue && Math.abs(value.length - previousValue.length) > 10) {
+      console.log('🤔 Posible selección de autofill detectada por cambio abrupto')
+      console.log('🤔 Intentando búsqueda manual como fallback...')
+      
+      // Intentar geocodificar como fallback
+      setTimeout(async () => {
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(value)}.json?` +
+            `access_token=${import.meta.env.VITE_MAPBOX_API_KEY}&` +
+            `bbox=-67.945404,17.881325,-65.220703,18.515683&` +
+            `language=es&` +
+            `limit=1`
+          )
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.features && data.features.length > 0) {
+              console.log('✅ Fallback geocoding exitoso:', data.features[0])
+              
+              // Simular el evento de retrieve que no llegó
+              const mockEvent = {
+                features: data.features
+              }
+              handleAutofillRetrieve(mockEvent)
+            }
+          }
+        } catch (error) {
+          console.log('❌ Fallback geocoding falló:', error)
+        }
+      }, 500) // Esperar un poco para asegurar que no llegue el evento real
+    }
+    
+    lastInputRef.current = value
+    handleInputChange(e)
+  }, [handleInputChange, handleAutofillRetrieve])
 
   // Cargar municipios al montar el componente
   useEffect(() => {
@@ -453,18 +743,39 @@ const MapboxAddressFormClean = ({
   // Debug: Monitorear si aparecen sugerencias después del cambio de configuración
   useEffect(() => {
     const checkForSuggestions = () => {
+      // Buscar elementos de Mapbox más específicos
       const autofillElements = document.querySelectorAll('[data-search-js-autofill]')
-      const suggestionsElements = document.querySelectorAll('[data-search-js-autofill] ul, [data-search-js-autofill] div')
+      const mapboxElements = document.querySelectorAll('[class*="mbx"], [class*="mapbox"], [class*="Results"], [class*="Suggestion"]')
+      const suggestionsElements = document.querySelectorAll('[data-search-js-autofill] ul, [data-search-js-autofill] div, [class*="Results"], [class*="Suggestion"]')
       
-      console.log('🔍 DOM Debug (Post-config change):')
+      console.log('🔍 DOM Debug (Búsqueda ampliada):')
       console.log('- Elementos con data-search-js-autofill:', autofillElements.length)
+      console.log('- Elementos con clases de Mapbox:', mapboxElements.length)
       console.log('- Posibles contenedores de sugerencias:', suggestionsElements.length)
+      
+      // Log detallado de elementos de Mapbox
+      if (mapboxElements.length > 0) {
+        console.log('✅ Elementos de Mapbox encontrados!')
+        mapboxElements.forEach((el, index) => {
+          console.log(`- Mapbox Element ${index}:`, {
+            element: el,
+            className: el.className,
+            visible: window.getComputedStyle(el).display !== 'none',
+            ariaHidden: el.getAttribute('aria-hidden'),
+            children: el.children.length
+          })
+        })
+      }
       
       if (suggestionsElements.length > 0) {
         console.log('✅ Se encontraron contenedores de sugerencias!')
         suggestionsElements.forEach((el, index) => {
-          console.log(`- Container ${index}:`, el)
-          console.log(`- Visible:`, window.getComputedStyle(el).display !== 'none')
+          console.log(`- Container ${index}:`, {
+            element: el,
+            className: el.className,
+            visible: window.getComputedStyle(el).display !== 'none',
+            ariaHidden: el.getAttribute('aria-hidden')
+          })
         })
       } else {
         console.log('❌ No se encontraron contenedores de sugerencias')
@@ -475,6 +786,28 @@ const MapboxAddressFormClean = ({
     const timer = setTimeout(checkForSuggestions, 3000)
     
     return () => clearTimeout(timer)
+  }, [])
+
+  // Debug: Monitorear eventos de Mapbox Search JS a nivel global
+  useEffect(() => {
+    // Agregar listener global para eventos de click en sugerencias
+    document.addEventListener('click', (e) => {
+      const target = e.target
+      if (target.closest('[data-search-js-autofill]')) {
+        console.log('🖱️ Click detectado en área de autofill:', {
+          target: target,
+          targetText: target.textContent,
+          isListItem: target.tagName === 'LI',
+          hasRole: target.hasAttribute('role'),
+          role: target.getAttribute('role'),
+          dataAttributes: [...target.attributes].filter(attr => attr.name.startsWith('data-'))
+        })
+      }
+    }, true) // Usar capture para capturar antes que otros handlers
+    
+    return () => {
+      // Cleanup si es necesario
+    }
   }, [])
 
   // Notificar cambios al componente padre
@@ -522,117 +855,26 @@ const MapboxAddressFormClean = ({
       {/* Estilos para el dropdown de AddressAutofill */}
       <style>
         {`
-          /* GLOBAL: Forzar visibilidad de TODOS los contenedores de sugerencias de Mapbox */
-          * {
-            /* Asegurar que no hay overflow hidden que oculte las sugerencias */
-          }
-          
-          body * {
-            /* Forzar visibilidad global */
-          }
-          
-          /* Animación para indicador de carga */
-          @keyframes spin {
-            0% { transform: translateY(-50%) rotate(0deg); }
-            100% { transform: translateY(-50%) rotate(360deg); }
-          }
-          
-          .coordinates-input {
-            transition: all 0.2s ease !important;
-          }
-          
-          .coordinates-input:focus {
-            outline: none !important;
-            border-color: #3b82f6 !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-          }
-          
-          .coordinates-input.success:focus {
-            border-color: #10b981 !important;
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
-          }
-          
-          .coordinates-input.error:focus {
-            border-color: #ef4444 !important;
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
-          }
-          
-          /* Contenedor principal del autofill */
-          .search-container {
-            position: relative !important;
-            z-index: 10000 !important;
-            overflow: visible !important;
-          }
-          
-          /* Asegurar que TODO el contenedor padre permita el overflow */
-          .mapbox-form-section,
-          .mapbox-page-container,
-          .mapbox-content-grid,
-          .address-form,
-          .form,
-          .form-group {
-            overflow: visible !important;
-            position: relative !important;
-          }
-          
-          /* Input de búsqueda */
-          .search-input {
-            width: 100% !important;
-            padding: 0.75rem !important;
-            border: 1px solid #3b82f6 !important;
-            border-radius: 6px !important;
-            font-size: 0.875rem !important;
-            background: #f9fafb !important;
-            color: #1f2937 !important;
-            position: relative !important;
-            z-index: 1 !important;
-          }
-          
-          /* Wrapper de AddressAutofill */
+          /* ESTILOS MEJORADOS PARA DEBUGGING Y FUNCIONALIDAD */
           [data-search-js-autofill] {
             position: relative !important;
-            display: block !important;
-            overflow: visible !important;
-            z-index: 10000 !important;
+            z-index: 1000 !important;
           }
           
-          /* SUPER GLOBAL: Todos los posibles contenedores de sugerencias */
-          [data-search-js-autofill] *,
+          /* Contenedor de sugerencias - más específico */
           [data-search-js-autofill] ul,
-          [data-search-js-autofill] ol,
-          [data-search-js-autofill] div,
-          [data-search-js-autofill] .suggestions,
-          [data-search-js-autofill] [class*="suggest"],
-          [data-search-js-autofill] [class*="dropdown"],
-          [data-search-js-autofill] [class*="result"],
-          [data-search-js-autofill] [class*="list"],
-          [data-search-js-autofill] [id*="suggest"],
-          [data-search-js-autofill] > *,
-          div[data-search-js-autofill] *,
-          /* Clases específicas de Mapbox */
-          .mapbox-search-autofill,
-          .search-results,
-          .suggestions-wrapper,
-          [class*="mapbox"][class*="suggest"],
-          [class*="search"][class*="suggest"],
-          [id*="mapbox"][id*="suggest"],
-          /* Intento directo con todas las posibles combinaciones */
-          [data-search-js-autofill] > div > ul,
-          [data-search-js-autofill] > div > div > ul,
-          [data-search-js-autofill] ul[role="listbox"],
           [data-search-js-autofill] div[role="listbox"],
-          [data-search-js-autofill] [role="listbox"] {
+          [data-search-js-autofill] .suggestions,
+          [data-search-js-autofill] .mapboxgl-ctrl-geocoder--suggestions {
             position: absolute !important;
             top: 100% !important;
             left: 0 !important;
             right: 0 !important;
-            width: 100% !important;
-            z-index: 10001 !important;
+            z-index: 1001 !important;
             background: white !important;
-            border: 1px solid #d1d5db !important;
-            border-top: none !important;
-            border-radius: 0 0 8px 8px !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+            border: 2px solid red !important; /* DEBUG: Border rojo para ver dónde está */
+            border-radius: 4px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
             max-height: 300px !important;
             overflow-y: auto !important;
             display: block !important;
@@ -641,40 +883,39 @@ const MapboxAddressFormClean = ({
             margin: 0 !important;
             padding: 0 !important;
             list-style: none !important;
-            /* Forzar que aparezca por encima de todo */
-            transform: none !important;
-            clip: none !important;
-            clip-path: none !important;
           }
           
-          /* Elementos de sugerencia individuales */
+          /* Items de sugerencias - más específico */
           [data-search-js-autofill] li,
+          [data-search-js-autofill] div[role="option"],
           [data-search-js-autofill] .suggestion,
-          [data-search-js-autofill] [class*="item"],
-          [data-search-js-autofill] > * > *,
-          .mapbox-search-autofill li,
-          div[data-search-js-autofill] * li {
+          [data-search-js-autofill] .mapboxgl-ctrl-geocoder--suggestion {
             padding: 12px 16px !important;
+            background: yellow !important; /* DEBUG: Fondo amarillo para ver elementos */
             cursor: pointer !important;
-            border-bottom: 1px solid #f3f4f6 !important;
-            transition: background-color 0.2s !important;
-            background: white !important;
-            color: #1f2937 !important;
-            font-size: 14px !important;
-            line-height: 1.4 !important;
+            color: black !important;
+            border-bottom: 1px solid #e5e7eb !important;
             display: block !important;
-            margin: 0 !important;
-            position: relative !important;
-            z-index: 10002 !important;
+            user-select: none !important;
+            pointer-events: auto !important; /* Asegurar que sean clicables */
+            min-height: 20px !important;
+            line-height: 1.4 !important;
           }
           
           /* Hover states */
           [data-search-js-autofill] li:hover,
+          [data-search-js-autofill] div[role="option"]:hover,
           [data-search-js-autofill] .suggestion:hover,
-          [data-search-js-autofill] [class*="item"]:hover,
-          .mapbox-search-autofill li:hover {
-            background-color: #f3f4f6 !important;
-            color: #1f2937 !important;
+          [data-search-js-autofill] .mapboxgl-ctrl-geocoder--suggestion:hover {
+            background: orange !important; /* DEBUG: Naranja en hover */
+          }
+          
+          /* Estados activos */
+          [data-search-js-autofill] li:active,
+          [data-search-js-autofill] div[role="option"]:active,
+          [data-search-js-autofill] .suggestion:active,
+          [data-search-js-autofill] .mapboxgl-ctrl-geocoder--suggestion:active {
+            background: red !important; /* DEBUG: Rojo cuando se clickea */
           }
 
           /* Estilos para el estado de búsqueda */
@@ -702,6 +943,12 @@ const MapboxAddressFormClean = ({
             background: #e3f2fd;
             border: 1px solid #2196f3;
             color: #1976d2;
+          }
+          
+          /* Animación de spinning para coordenadas */
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
           }
         `}
       </style>
@@ -735,12 +982,75 @@ const MapboxAddressFormClean = ({
               <AddressAutofill
                 accessToken={import.meta.env.VITE_MAPBOX_API_KEY}
                 onRetrieve={handleAutofillRetrieve}
+                onChange={(e) => {
+                  console.log('📝 AddressAutofill onChange triggered:', e.target?.value || e)
+                  console.log('📝 Input value:', e.target?.value)
+                  console.log('📝 Event target:', e.target)
+                  
+                  // Si el cambio incluye coordenadas, podría ser una selección
+                  if (e.target?.value && e.target.value.includes(',')) {
+                    console.log('🤔 Posible selección detectada en onChange')
+                  }
+                  
+                  // Llamar al handler original
+                  handleInputChangeWithFallback(e)
+                }}
                 onSuggest={(e) => {
                   console.log('📝 AddressAutofill onSuggest triggered:', e)
                   console.log('📝 Number of suggestions:', e.suggestions ? e.suggestions.length : 0)
                   if (e.suggestions && e.suggestions.length > 0) {
                     console.log('📝 First suggestion:', e.suggestions[0])
+                    console.log('📝 All suggestions:', e.suggestions)
                   }
+                  
+                  // Debug: Verificar si las sugerencias son clicables después de renderizar
+                  setTimeout(() => {
+                    // Buscar elementos con clases específicas de Mapbox
+                    const mapboxSuggestions = document.querySelectorAll('[class*="mbx"][class*="Suggestion"], [class*="mapbox"][class*="suggestion"]')
+                    const allPossibleSuggestions = document.querySelectorAll(
+                      '[data-search-js-autofill] li, ' +
+                      '[data-search-js-autofill] .suggestion, ' +
+                      '[data-search-js-autofill] [role="option"], ' +
+                      '[class*="mbx"][class*="Suggestion"], ' +
+                      '[class*="Results"] > div'
+                    )
+                    
+                    console.log('🖱️ Elementos de sugerencia encontrados (ampliado):', allPossibleSuggestions.length)
+                    console.log('🖱️ Elementos Mapbox específicos:', mapboxSuggestions.length)
+                    
+                    allPossibleSuggestions.forEach((el, index) => {
+                      console.log(`🖱️ Sugerencia ${index}:`, {
+                        element: el,
+                        text: el.textContent,
+                        className: el.className,
+                        id: el.id,
+                        clickable: window.getComputedStyle(el).pointerEvents !== 'none',
+                        visible: window.getComputedStyle(el).display !== 'none',
+                        ariaHidden: el.getAttribute('aria-hidden'),
+                        zIndex: window.getComputedStyle(el).zIndex,
+                        hasClickHandler: !!el.onclick
+                      })
+                      
+                      // Agregar listener manual para debugging
+                      el.addEventListener('click', (event) => {
+                        console.log('🖱️ CLICK MANUAL en sugerencia:', {
+                          index,
+                          text: el.textContent,
+                          event: event,
+                          className: el.className
+                        })
+                        
+                        // Si detectamos el click pero no se ejecuta onRetrieve, 
+                        // intentar extraer la información y hacer geocoding manual
+                        if (el.textContent) {
+                          console.log('🔄 Intentando procesar selección manual...')
+                          setTimeout(() => {
+                            handleInputChangeWithFallback({ target: { value: el.textContent } })
+                          }, 100)
+                        }
+                      }, { once: true })
+                    })
+                  }, 200) // Aumentar tiempo para que Mapbox renderice
                 }}
                 onClear={() => {
                   console.log('🧹 AddressAutofill onClear triggered')
@@ -766,7 +1076,7 @@ const MapboxAddressFormClean = ({
                   type="text"
                   placeholder="Ej: Calle Principal, KM 15.2 Carr 123, Barrio Pueblo, etc."
                   className="search-input"
-                  onChange={handleInputChange}
+                  onChange={handleInputChangeWithFallback}
                   autoComplete="address-line1"
                 />
               </AddressAutofill>
@@ -785,6 +1095,10 @@ const MapboxAddressFormClean = ({
             </label>
             <small style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>
               Formato: <code>"18.219107, -66.225394"</code> - Se validará automáticamente para Puerto Rico
+              <br />
+              <span style={{ color: '#059669', fontSize: '0.7rem' }}>
+                💡 Prueba con: <strong>18.4655, -66.1057</strong> (San Juan Centro) para ver el reverse geocoding
+              </span>
             </small>
             
             <div className="coordinates-container" style={{ position: 'relative' }}>
@@ -793,7 +1107,7 @@ const MapboxAddressFormClean = ({
                 id="coordinates"
                 value={manualCoordinates}
                 onChange={handleCoordinatesChange}
-                placeholder="18.219107, -66.225394"
+                placeholder="18.4655, -66.1057"
                 className={`coordinates-input ${coordinatesError ? 'error' : ''} ${manualCoordinates && !coordinatesError && !isValidatingCoords ? 'success' : ''}`}
                 disabled={isValidatingCoords}
                 style={{
@@ -843,15 +1157,23 @@ const MapboxAddressFormClean = ({
                   marginTop: '6px', 
                   fontSize: '0.75rem', 
                   color: '#0ea5e9',
-                  padding: '4px 8px',
+                  padding: '6px 10px',
                   backgroundColor: '#f0f9ff',
                   border: '1px solid #bae6fd',
                   borderRadius: '4px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '6px'
                 }}>
-                  🌐 <span>Procesando coordenadas y ubicando en el mapa...</span>
+                  <div style={{ 
+                    width: '12px', 
+                    height: '12px', 
+                    border: '2px solid #bae6fd', 
+                    borderTop: '2px solid #0ea5e9',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  <span><strong>Buscando dirección...</strong> Convirtiendo coordenadas a dirección física</span>
                 </div>
               )}
               
