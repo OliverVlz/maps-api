@@ -7,11 +7,12 @@ import './MapboxPage.css'
 function MapboxPage() {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [addressData, setAddressData] = useState({
-    linea1: '',
-    linea2: '',
+    line1: '',
+    line2: '',
     municipio: '',
     barrio: '',
-    descripcion: ''
+    zipCode: '',
+    state: 'Puerto Rico'
   })
   
   // Estados para los detalles de validación (pasados desde el formulario)

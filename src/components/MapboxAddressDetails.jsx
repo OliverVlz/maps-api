@@ -7,10 +7,14 @@ function MapboxAddressDetails({
 }) {
   // Validar que addressData tenga valores de string válidos
   const safeAddressData = {
-    linea1: typeof addressData?.linea1 === 'string' ? addressData.linea1 : '',
-    linea2: typeof addressData?.linea2 === 'string' ? addressData.linea2 : '',
+    linea1: typeof addressData?.line1 === 'string' ? addressData.line1 : 
+            typeof addressData?.linea1 === 'string' ? addressData.linea1 : '',
+    linea2: typeof addressData?.line2 === 'string' ? addressData.line2 : 
+            typeof addressData?.linea2 === 'string' ? addressData.linea2 : '',
     municipio: typeof addressData?.municipio === 'string' ? addressData.municipio : '',
     barrio: typeof addressData?.barrio === 'string' ? addressData.barrio : '',
+    zipCode: typeof addressData?.zipCode === 'string' ? addressData.zipCode : '',
+    state: typeof addressData?.state === 'string' ? addressData.state : '',
     descripcion: typeof addressData?.descripcion === 'string' ? addressData.descripcion : ''
   }
 
@@ -25,7 +29,12 @@ function MapboxAddressDetails({
   }
 
   const isGenericAddress = () => {
-    if (!realAddressFromCoords) return false
+    if (!realAddressFromCoords || 
+        !realAddressFromCoords.direccion_completa || 
+        !realAddressFromCoords.municipio || 
+        !realAddressFromCoords.barrio) {
+      return false
+    }
     
     const address = realAddressFromCoords.direccion_completa.toLowerCase()
     const municipio = realAddressFromCoords.municipio.toLowerCase()

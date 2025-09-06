@@ -56,6 +56,11 @@ const MapboxMapComponent = ({ location, addressData, mapStyle: externalMapStyle 
     // Función para inicializar el mapa
     const initializeMap = () => {
       try {
+        if (!mapContainer.current) {
+          console.error('❌ MapContainer ref is null')
+          return
+        }
+
         window.mapboxgl.accessToken = accessToken
 
         map.current = new window.mapboxgl.Map({

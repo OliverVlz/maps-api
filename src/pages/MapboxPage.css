@@ -23,7 +23,8 @@
   min-width: 320px;
   max-width: 480px;
   box-sizing: border-box;
-  overflow: hidden; /* Evitar desbordamiento */
+  overflow: visible; /* Permitir que el dropdown sea visible */
+  position: relative; /* Para el contexto de z-index */
 }
 
 /* Forzar que todos los elementos del formulario respeten el contenedor */
