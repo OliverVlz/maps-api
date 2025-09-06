@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { AddressAutofill, AddressMinimap, useConfirmAddress } from '@mapbox/search-js-react'
 import { useForm } from 'react-hook-form'
-import mapboxConfig from '../config/mapboxConfig'
 
 const MapboxAddressFormOfficial = ({ 
   addressData, 
@@ -15,15 +14,15 @@ const MapboxAddressFormOfficial = ({
   const [searchStatus, setSearchStatus] = useState(null)
   const [debugInfo, setDebugInfo] = useState([])
 
-  // Función para agregar información de debug (memoizada para evitar bucle infinito)
-  const addDebugInfo = useCallback((message, type = 'info') => {
+  // Función para agregar información de debug
+  const addDebugInfo = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString()
     setDebugInfo(prev => [...prev.slice(-9), { message, type, timestamp }])
-  }, [])
+  }
 
   // Hook oficial de Mapbox para confirmación de direcciones
   const { formRef, showConfirm } = useConfirmAddress({
-    accessToken: mapboxConfig.accessToken,
+    accessToken: import.meta.env.VITE_MAPBOX_API_KEY,
     options: {
       country: 'pr', // Limitar a Puerto Rico
       language: 'es', // Respuesta en español
@@ -33,15 +32,9 @@ const MapboxAddressFormOfficial = ({
 
   // Debug mejorado: Verificar que el token esté disponible
   useEffect(() => {
-    if (!mapboxConfig.isValid()) {
-      addDebugInfo('❌ Configuración de Mapbox inválida', 'error')
-      return
-    }
-
-    const token = mapboxConfig.accessToken
+    const token = import.meta.env.VITE_MAPBOX_API_KEY
     console.log('🔑 MAPBOX Token disponible:', !!token)
     console.log('🔑 MAPBOX Token length:', token?.length)
-    console.log(`🔑 Usando API Key: ${token.substring(0, 20)}...`)
     
     if (!token) {
       addDebugInfo('❌ Token de Mapbox no configurado!', 'error')
@@ -59,7 +52,7 @@ const MapboxAddressFormOfficial = ({
     } else {
       addDebugInfo('✅ AddressAutofill cargado correctamente', 'success')
     }
-  }, [addDebugInfo])
+  }, [])
 
   // React Hook Form para validación
   const { register, formState: { errors }, setValue, watch } = useForm({
@@ -153,18 +146,17 @@ const MapboxAddressFormOfficial = ({
     } else {
       addDebugInfo('⚠️ No se encontraron features en la respuesta', 'warning')
     }
-  }, [onAddressSelect, onRealAddressUpdate, onCoordinatesDataUpdate, setValue, addDebugInfo])
+  }, [onAddressSelect, onRealAddressUpdate, onCoordinatesDataUpdate, setValue])
 
   // Handlers adicionales para debug
+  const handleInputFocus = () => {
+    addDebugInfo('🎯 Input enfocado - buscando sugerencias...', 'info')
+  }
+
   const handleInputChange = (e) => {
-    const query = e.target.value
-    setValue('address', query)
-    console.log('🔄 Input changed:', query)
-    
-    if (query.length > 2) {
-      console.log('📍 Query length sufficient for suggestions:', query.length)
-    } else {
-      console.log('⚠️ Query too short for suggestions:', query.length)
+    const value = e.target.value
+    if (value.length > 2) {
+      addDebugInfo(`⌨️ Escribiendo: "${value}" (${value.length} chars)`, 'info')
     }
   }
 
@@ -217,12 +209,19 @@ const MapboxAddressFormOfficial = ({
         message: '❌ Error al confirmar la dirección'
       })
     }
-  }, [showConfirm, setAddressData, addDebugInfo])
+  }, [showConfirm, setAddressData])
 
   // Sincronizar cambios del formulario con el padre
   useEffect(() => {
-    if (setAddressData) {
-      setAddressData(watchedFields)
+    if (setAddressData && watchedFields) {
+      // Usar función de actualización con verificación de igualdad para evitar actualizaciones innecesarias
+      setAddressData(prevData => {
+        // Comparar objetos para evitar actualizaciones innecesarias que causan loops
+        if (JSON.stringify(prevData) === JSON.stringify(watchedFields)) {
+          return prevData // No actualizar si los datos son iguales
+        }
+        return watchedFields
+      })
     }
   }, [watchedFields, setAddressData])
 
@@ -269,7 +268,7 @@ const MapboxAddressFormOfficial = ({
           
           <div style={{ position: 'relative' }}>
             <AddressAutofill
-              accessToken={mapboxConfig.accessToken}
+              accessToken={import.meta.env.VITE_MAPBOX_API_KEY}
               onRetrieve={handleAutofillRetrieve}
               options={{
                 country: 'pr',
@@ -285,10 +284,6 @@ const MapboxAddressFormOfficial = ({
                 name="address-line1"
                 placeholder="Ej: Calle Principal 123, Caguas, PR"
                 required
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#7c3aed'
-                  e.target.style.boxShadow = '0 0 0 3px rgba(124, 58, 237, 0.1)'
-                }}
                 onChange={handleInputChange}
                 style={{ 
                   width: '100%',
@@ -299,6 +294,11 @@ const MapboxAddressFormOfficial = ({
                   outline: 'none',
                   transition: 'all 0.2s',
                   backgroundColor: 'white'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#7c3aed'
+                  e.target.style.boxShadow = '0 0 0 3px rgba(124, 58, 237, 0.1)'
+                  handleInputFocus()
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#d1d5db'
@@ -359,7 +359,7 @@ const MapboxAddressFormOfficial = ({
                 satelliteToggle={true}
                 canAdjustMarker={true}
                 footer={true}
-                accessToken={mapboxConfig.accessToken}
+                accessToken={import.meta.env.VITE_MAPBOX_API_KEY}
               />
             </div>
           </div>
