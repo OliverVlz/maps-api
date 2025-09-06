@@ -8,33 +8,9 @@
 
 .mapbox-title {
   text-align: center;
-  color: #7c3aed;
-  border-bottom: 2px solid #7c3aed;
-  padding-bottom: 0.5rem;
-  margin-bottom: 2rem;
 }
 
-/* Estilos para componentes oficiales de Mapbox */
-.mapbox-address-autofill {
-  position: relative;
-}
-
-.search-icon {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #6b7280;
-}
-
-/* Asegurar que el minimapa se vea bien */
-.mapbox-address-minimap {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* Layout Grid: Formulario izquierda, Mapa+Detalles derecha */
+/* Nuevo layout: Grid con formulario izquierda, mapa+detalles derecha */
 .mapbox-content-grid {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -47,7 +23,7 @@
   min-width: 320px;
   max-width: 480px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: hidden; /* Evitar desbordamiento */
 }
 
 /* Forzar que todos los elementos del formulario respeten el contenedor */
@@ -64,7 +40,7 @@
 }
 
 .mapbox-form-section .form-group {
-  min-width: 0;
+  min-width: 0; /* Permitir que se reduzcan */
   width: 100%;
 }
 
@@ -72,8 +48,8 @@
 .mapbox-form-section .form-group select,
 .mapbox-form-section .form-group textarea {
   width: 100%;
-  min-width: 0;
-  max-width: 100%;
+  min-width: 0; /* Permitir que se reduzcan */
+  max-width: 100%; /* No exceder el contenedor */
 }
 
 .mapbox-form-section .form-group small {
@@ -110,7 +86,7 @@
 
 .mapbox-map-container {
   flex: 1;
-  min-height: 400px;
+  min-height: 500px;
 }
 
 .mapbox-details-container {
@@ -145,224 +121,17 @@
 }
 
 .mapbox-form-section .search-status.success {
-  background-color: #f3f4f6;
+  background-color: #f3e8ff;
   border-left: 4px solid #7c3aed;
   color: #7c3aed;
 }
 
 .mapbox-form-section .suggestion-item:hover {
-  background-color: #f3f4f6;
+  background-color: #f3e8ff;
   border-left: 3px solid #7c3aed;
 }
 
-.mapbox-map-section .map-container h3 {
+.mapbox-map-section h3 {
   color: #7c3aed;
-  border-bottom: 1px solid #7c3aed;
-  padding-bottom: 0.5rem;
   margin-bottom: 1rem;
-}
-
-/* Botón específico de Mapbox */
-.submit-btn.mapbox-submit:hover {
-  background: #6d28d9 !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
-}
-
-/* Estilos para componentes específicos de Mapbox */
-.mapbox-details .address-validation {
-  border: 2px solid #7c3aed;
-  background: #faf5ff;
-}
-
-.mapbox-details .address-validation summary h4 {
-  color: #7c3aed;
-}
-
-.mapbox-details .mapbox-real-address {
-  background: #faf5ff;
-  border-left: 4px solid #7c3aed;
-}
-
-.mapbox-details .mapbox-user-address {
-  background: #fef3c7;
-  border-left: 4px solid #f59e0b;
-}
-
-.mapbox-details .mapbox-generic-warning {
-  background: #eff6ff;
-  border: 1px solid #7c3aed;
-  border-left: 4px solid #7c3aed;
-}
-
-.mapbox-details .mapbox-generic-warning h6 {
-  color: #6d28d9;
-}
-
-.mapbox-details .mapbox-generic-warning p {
-  color: #7c2d12;
-}
-
-.mapbox-details .mapbox-warning {
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
-  border-left: 4px solid #f59e0b;
-}
-
-/* Estilos para la sección de características de Mapbox */
-.mapbox-features {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #faf5ff;
-  border-radius: 8px;
-  border: 1px solid #e9d5ff;
-}
-
-.mapbox-features h5 {
-  margin: 0 0 1rem 0;
-  color: #7c3aed;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.mapbox-features .features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.mapbox-features .feature-item {
-  text-align: center;
-  padding: 1rem;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
-  transition: transform 0.2s ease;
-}
-
-.mapbox-features .feature-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(124, 58, 237, 0.15);
-}
-
-.mapbox-features .feature-item span {
-  font-size: 2rem;
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.mapbox-features .feature-item strong {
-  display: block;
-  color: #7c3aed;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.mapbox-features .feature-item p {
-  color: #666;
-  margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
-/* Estilos para comparación */
-.mapbox-comparison {
-  margin-top: 2rem;
-}
-
-.mapbox-comparison .comparison-info {
-  border: 2px solid #e5e7eb;
-  background: #f9fafb;
-}
-
-.mapbox-comparison .comparison-content {
-  padding: 1rem;
-}
-
-.mapbox-comparison .comparison-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.mapbox-comparison .provider-comparison {
-  padding: 1rem;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.mapbox-comparison .provider-comparison h5 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.mapbox-comparison .provider-comparison ul {
-  margin: 0;
-  padding-left: 1.25rem;
-  list-style: none;
-}
-
-.mapbox-comparison .provider-comparison li {
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  position: relative;
-}
-
-.mapbox-comparison .provider-comparison li::before {
-  position: absolute;
-  left: -1.25rem;
-  width: 1rem;
-}
-
-.mapbox-comparison .recommendation {
-  background: #f0f9ff;
-  border: 1px solid #0ea5e9;
-  border-left: 4px solid #0ea5e9;
-  border-radius: 6px;
-  padding: 1rem;
-}
-
-.mapbox-comparison .recommendation h6 {
-  margin: 0 0 0.75rem 0;
-  color: #0c4a6e;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.mapbox-comparison .recommendation p {
-  margin: 0.5rem 0;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  color: #075985;
-}
-
-/* Responsive para comparación */
-@media (max-width: 768px) {
-  .mapbox-comparison .comparison-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .mapbox-features .features-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Transiciones suaves */
-.mapbox-page-container * {
-  transition: all 0.2s ease;
-}
-
-/* Asegurar que los inputs tengan el color correcto */
-.mapbox-form-section input:focus,
-.mapbox-form-section select:focus,
-.mapbox-form-section textarea:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }

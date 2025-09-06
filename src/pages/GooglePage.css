@@ -114,6 +114,24 @@
   }
 }
 
+/* Google specific styling */
+.google-form-section .address-form h2 {
+  color: #2196f3;
+  border-bottom: 2px solid #2196f3;
+  padding-bottom: 0.5rem;
+}
+
+.google-form-section .search-status.success {
+  background-color: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  color: #2196f3;
+}
+
+.google-form-section .suggestion-item:hover {
+  background-color: #e3f2fd;
+  border-left: 3px solid #2196f3;
+}
+
 /* Estilos para el botón de coordenadas */
 .coordinates-container {
   display: flex;
