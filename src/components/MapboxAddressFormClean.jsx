@@ -38,32 +38,49 @@ const MapboxAddressFormClean = ({
   const watchedFields = watch()
   const lastSentHashRef = useRef('')
   const coordinatesTimeoutRef = useRef(null)
+  
+  // Referencia para el input del AddressAutofill
+  const searchInputRef = useRef(null)
 
   // ⭐ Función para estructurar datos de dirección real (compatible con detalles)
   const createRealAddressData = useCallback((feature, lat, lng, source = 'geocoding') => {
     const props = feature.properties || {}
     
-    // Extraer dirección principal de manera robusta
+    // 🎯 MEJORAR: Extraer dirección principal de manera más inteligente
     let direccionCompleta = ''
+    let direccionDetallada = ''
     
-    // Para autofill, usar address_line1 que es más confiable
-    if (source === 'autofill' && props.address_line1) {
-      direccionCompleta = props.address_line1
+    // Para autofill, usar address_line1 como base pero enriquecer con place_name
+    if (source === 'autofill') {
+      if (props.address_line1) {
+        direccionCompleta = props.address_line1
+        // Si place_name tiene más información, usarla como dirección detallada
+        direccionDetallada = feature.place_name || props.address_line1
+      } else if (feature.place_name) {
+        // Si no hay address_line1, usar place_name
+        const parts = feature.place_name.split(',')
+        direccionCompleta = parts[0].trim()
+        direccionDetallada = feature.place_name
+      }
     }
     // Para geocoding/reverse geocoding
     else if (props.address) {
       direccionCompleta = props.address
+      direccionDetallada = feature.place_name || props.address
     } else if (feature.text) {
       if (props.house_number) {
         direccionCompleta = `${feature.text} ${props.house_number}`
       } else {
         direccionCompleta = feature.text
       }
+      direccionDetallada = feature.place_name || direccionCompleta
     } else if (feature.place_name) {
       const parts = feature.place_name.split(',')
       direccionCompleta = parts[0].trim()
+      direccionDetallada = feature.place_name
     } else {
       direccionCompleta = `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      direccionDetallada = direccionCompleta
     }
     
     // Extraer municipio
@@ -74,6 +91,15 @@ const MapboxAddressFormClean = ({
       )
       if (place && place.text) {
         municipio = place.text
+      }
+    }
+    
+    // Si no se encontró municipio en context, intentar extraer del place_name
+    if (!municipio && feature.place_name) {
+      const parts = feature.place_name.split(',')
+      if (parts.length >= 2) {
+        // Buscar la parte que podría ser el municipio (generalmente la penúltima)
+        municipio = parts[parts.length - 2].trim()
       }
     }
     
@@ -88,20 +114,39 @@ const MapboxAddressFormClean = ({
       }
     }
     
-    // Estructura compatible con HereAddressDetails
+    // Si no hay barrio en context, intentar extraer del place_name
+    if (!barrio && feature.place_name) {
+      const parts = feature.place_name.split(',')
+      if (parts.length >= 3) {
+        // La segunda parte podría ser un barrio/sector
+        const secondPart = parts[1].trim()
+        if (secondPart && secondPart !== municipio && secondPart !== direccionCompleta) {
+          barrio = secondPart
+        }
+      }
+    }
+    
+    // 🎯 MEJORAR: Estructura compatible con HereAddressDetails con información más rica
     const realAddressData = {
       coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-      direccion_completa: direccionCompleta,
+      direccion_completa: direccionDetallada, // Usar la versión detallada
+      direccion_simple: direccionCompleta,    // Mantener la versión simple también
+      place_name_original: feature.place_name, // Mantener el place_name original
       municipio: municipio || '',
       barrio: barrio || '',
       componentes: {
         // Mapear componentes de Mapbox a formato similar a HERE
         address: direccionCompleta,
+        detailedAddress: direccionDetallada,
         city: municipio,
         district: barrio,
         postalCode: feature.context?.find(item => item.id?.includes('postcode'))?.text || props.postcode || '',
         country: 'Puerto Rico',
-        fullAddress: feature.place_name || direccionCompleta
+        fullAddress: feature.place_name || direccionDetallada,
+        // Información adicional para los detalles
+        title: direccionCompleta,
+        subtitle: feature.place_name ? feature.place_name.split(',').slice(1).join(',').trim() : '',
+        formattedAddress: direccionDetallada
       },
       source: source, // 'autofill', 'manual', 'coordinates'
       originalFeature: feature // Mantener datos originales para debug
@@ -546,32 +591,96 @@ const MapboxAddressFormClean = ({
     console.log('✅ Feature found:', feature)
     console.log('✅ Feature properties:', feature.properties)
     console.log('✅ Feature geometry:', feature.geometry)
-    const props = feature.properties
+    console.log('✅ Feature place_name:', feature.place_name)
+    console.log('✅ Feature text:', feature.text)
+    
+    const props = feature.properties || {}
     const [lng, lat] = feature.geometry?.coordinates || []
     
     console.log('✅ Extracted coordinates:', { lat, lng })
     
-    // Mapear los campos del autofill a nuestro formulario
+    // 🎯 MEJORAR: Extraer dirección completa con mejor lógica
+    let direccionLine1 = ''
+    let direccionDetails = ''
+    
+    // Prioridad 1: Si hay address_line1, usarlo como base pero enriquecer con place_name
     if (props.address_line1) {
-      setValue('line1', props.address_line1)
+      direccionLine1 = props.address_line1
+      // Si place_name tiene más información que address_line1, usarla para detalles
+      if (feature.place_name && feature.place_name !== props.address_line1) {
+        direccionDetails = feature.place_name
+      } else {
+        direccionDetails = props.address_line1
+      }
+    }
+    // Prioridad 2: Si hay text con number, construir dirección completa
+    else if (feature.text && props.house_number) {
+      direccionLine1 = `${feature.text} ${props.house_number}`
+      direccionDetails = feature.place_name || direccionLine1
+    }
+    // Prioridad 3: Usar solo text si está disponible
+    else if (feature.text) {
+      direccionLine1 = feature.text
+      direccionDetails = feature.place_name || feature.text
+    }
+    // Prioridad 4: Extraer primera parte del place_name
+    else if (feature.place_name) {
+      const parts = feature.place_name.split(',')
+      direccionLine1 = parts[0].trim()
+      direccionDetails = feature.place_name
+    }
+    // Fallback: Coordenadas formateadas
+    else {
+      direccionLine1 = `Ubicación ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      direccionDetails = direccionLine1
     }
     
-    if (props.address_line2) {
-      setValue('line2', props.address_line2)
+    console.log('🏠 Dirección extraída para line1:', direccionLine1)
+    console.log('🏠 Dirección completa para detalles:', direccionDetails)
+    
+    // 🎯 NUEVO: Actualizar el input de búsqueda con la dirección completa
+    if (searchInputRef.current) {
+      searchInputRef.current.value = direccionDetails
+      console.log('🔍 Input de búsqueda actualizado con:', direccionDetails)
+    }
+    
+    // Mapear los campos del autofill a nuestro formulario
+    setValue('line1', direccionLine1)
+    
+    // 🎯 MEJORAR: Llenar line2 con información contextual adicional si está disponible
+    let line2Content = props.address_line2 || ''
+    
+    // Si no hay address_line2, intentar extraer información contextual del place_name
+    if (!line2Content && feature.place_name) {
+      const parts = feature.place_name.split(',')
+      if (parts.length > 1) {
+        // Tomar la segunda parte como line2 (podría ser barrio, sector, etc.)
+        const secondPart = parts[1].trim()
+        if (secondPart && secondPart !== direccionLine1) {
+          line2Content = secondPart
+        }
+      }
+    }
+    
+    if (line2Content) {
+      setValue('line2', line2Content)
+      console.log('🏠 Line2 configurado:', line2Content)
     }
     
     // Municipio desde context/place_name (más confiable para PR)
+    let municipioEncontrado = ''
     if (feature.context && Array.isArray(feature.context)) {
       const place = feature.context.find(item => item.id && item.id.includes('place'))
       if (place && place.text) {
+        municipioEncontrado = place.text
         setValue('municipio', place.text)
       }
-    } else if (props.place_name) {
+    } else if (feature.place_name) {
       // Fallback: extraer municipio del place_name
-      const parts = props.place_name.split(',')
+      const parts = feature.place_name.split(',')
       if (parts.length >= 2) {
-        const municipio = parts[parts.length - 2].trim()
-        setValue('municipio', municipio)
+        municipioEncontrado = parts[parts.length - 2].trim()
+        setValue('municipio', municipioEncontrado)
       }
     }
     
@@ -583,8 +692,9 @@ const MapboxAddressFormClean = ({
     setValue('state', 'Puerto Rico')
     
     console.log('📍 Valores autocompletados en el formulario:')
-    console.log('- line1:', props.address_line1)
-    console.log('- line2:', props.address_line2)
+    console.log('- line1:', direccionLine1)
+    console.log('- line2:', line2Content)
+    console.log('- municipio:', municipioEncontrado)
     console.log('- zipCode:', props.postcode)
     console.log('- state: Puerto Rico')
     
@@ -594,14 +704,24 @@ const MapboxAddressFormClean = ({
       message: '✅ Dirección encontrada y autocompletada'
     })
     
-    // Crear datos estructurados para los detalles
+    // 🎯 MEJORAR: Crear datos estructurados con información más rica para los detalles
     const realAddressData = createRealAddressData(feature, lat, lng, 'autofill')
-    const coordinatesData = createCoordinatesData(lat, lng, 'autofill', realAddressData.direccion_completa)
+    
+    // Enriquecer con la información formateada que extraímos
+    realAddressData.direccion_completa = direccionDetails
+    realAddressData.direccion_line1 = direccionLine1
+    realAddressData.direccion_line2 = line2Content
+    realAddressData.place_name_completo = feature.place_name
+    realAddressData.componentes.fullFormattedAddress = direccionDetails
+    realAddressData.componentes.line1 = direccionLine1
+    realAddressData.componentes.line2 = line2Content
+    
+    const coordinatesData = createCoordinatesData(lat, lng, 'autofill', direccionDetails)
     
     // Enviar datos a los componentes de detalles
     if (onRealAddressUpdate) {
       onRealAddressUpdate(realAddressData)
-      console.log('📊 Datos de dirección real enviados:', realAddressData)
+      console.log('📊 Datos de dirección real enviados (mejorados):', realAddressData)
     }
     
     if (onCoordinatesDataUpdate) {
@@ -617,13 +737,14 @@ const MapboxAddressFormClean = ({
         lng, 
         source: 'autofill',
         formData: {
-          line1: props.address_line1,
-          line2: props.address_line2,
-          municipio: feature.context?.find(item => item.id?.includes('place'))?.text || 
-                    (props.place_name ? props.place_name.split(',')[props.place_name.split(',').length - 2]?.trim() : ''),
+          line1: direccionLine1,
+          line2: line2Content,
+          municipio: municipioEncontrado,
           zipCode: props.postcode,
           state: 'Puerto Rico'
-        }
+        },
+        fullAddress: direccionDetails,
+        placeName: feature.place_name
       })
     }
   }, [setValue, onAddressSelect, createRealAddressData, createCoordinatesData, onRealAddressUpdate, onCoordinatesDataUpdate])
@@ -1073,6 +1194,7 @@ const MapboxAddressFormClean = ({
                 }}
               >
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Ej: Calle Principal, KM 15.2 Carr 123, Barrio Pueblo, etc."
                   className="search-input"
