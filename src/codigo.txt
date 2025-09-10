@@ -1,0 +1,155 @@
+import { Component, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+declare const mapboxgl: any;
+declare const MapboxDraw: any;
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
+
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f3f4f6;
+      }
+      #map {
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10;
+      }
+      .card-info {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        @apply bg-slate-800 bg-opacity-80 p-6 rounded-3xl shadow-xl max-w-lg w-full transition-opacity duration-300 text-white;
+        z-index: 100;
+      }
+      .info-box {
+        @apply bg-slate-700 p-4 rounded-xl mt-4 break-all;
+      }
+      .btn-toggle {
+        @apply fixed top-5 right-5 z-20 px-4 py-2 rounded-full font-semibold transition-colors duration-200 bg-blue-500 hover:bg-blue-600 text-white;
+      }
+    </style>
+    <div id="map"></div>
+
+    <button (click)="toggleInfo()" class="btn-toggle">
+      {{ showInfo() ? 'Ocultar Información' : 'Mostrar Información' }}
+    </button>
+
+    <div *ngIf="showInfo()" class="card-info">
+      <h3 class="text-2xl font-bold text-white text-center mb-4">Seleccionar Coordenadas</h3>
+      <p class="text-white text-center mb-4">Haz clic en el mapa para obtener una coordenada, o usa las herramientas de dibujo en la parte superior izquierda.</p>
+      
+      <div class="info-box">
+        <h4 class="font-bold mb-2">Coordenada seleccionada:</h4>
+        <p>Latitud: {{ selectedCoords()?.lat?.toFixed(5) }}</p>
+        <p>Longitud: {{ selectedCoords()?.lng?.toFixed(5) }}</p>
+      </div>
+
+      <div class="info-box">
+        <h4 class="font-bold mb-2">Coordenadas dibujadas:</h4>
+        <pre class="whitespace-pre-wrap">{{ drawnCoords() }}</pre>
+      </div>
+    </div>
+  `,
+  styleUrls: []
+})
+export class App implements AfterViewInit, OnDestroy {
+  private map?: mapboxgl.Map;
+  private draw?: any;
+  private mapboxAccessToken = "pk.eyJ1IjoiYXR0aWxhNTIiLCJhIjoiY2thOTE3N3l0MDZmczJxcjl6dzZoNDJsbiJ9.bzXjw1xzQcsIhjB_YoAuEw";
+  private clickMarker: mapboxgl.Marker | null = null;
+  
+  showInfo = signal(true);
+  selectedCoords = signal<{ lat: number, lng: number } | null>(null);
+  drawnCoords = signal<string>('N/A');
+
+  ngAfterViewInit(): void {
+    setTimeout(() => {
+      this.initMap();
+    }, 100);
+  }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
+  }
+
+  initMap(): void {
+    if (!mapboxgl) {
+      console.error('Error: Mapbox GL no se ha cargado.');
+      return;
+    }
+
+    if (!mapboxgl.supported()) {
+      console.error('Tu navegador no es compatible con Mapbox GL.');
+      return;
+    }
+
+    mapboxgl.accessToken = this.mapboxAccessToken;
+
+    this.map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/standard',
+      center: [-104.9903, 39.7589],
+      zoom: 12,
+      bearing: 50,
+      pitch: 60
+    });
+
+    // Inicializar la biblioteca de dibujo
+    this.draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        line_string: true,
+        trash: true
+      },
+      defaultMode: 'draw_polygon'
+    });
+    this.map.addControl(this.draw);
+
+    // Añadir marcador para el clic
+    this.clickMarker = new mapboxgl.Marker({
+      color: '#FF0000',
+      draggable: true
+    });
+
+    // Escuchar el evento de clic en el mapa
+    this.map.on('click', (e: any) => {
+      this.selectedCoords.set({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      
+      // Mover el marcador al punto del clic
+      this.clickMarker?.setLngLat(e.lngLat).addTo(this.map!);
+    });
+
+    // Escuchar eventos de dibujo
+    this.map.on('draw.create', (e: any) => this.updateDrawnFeatures(e));
+    this.map.on('draw.delete', (e: any) => this.updateDrawnFeatures(e));
+    this.map.on('draw.update', (e: any) => this.updateDrawnFeatures(e));
+  }
+
+  toggleInfo(): void {
+    this.showInfo.set(!this.showInfo());
+  }
+
+  updateDrawnFeatures(e: any): void {
+    const data = this.draw.getAll();
+    if (data.features.length > 0) {
+      this.drawnCoords.set(JSON.stringify(data, null, 2));
+    } else {
+      this.drawnCoords.set('N/A');
+    }
+  }
+}

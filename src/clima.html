@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clima de Eventos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+    }
+
+    #map {
+      height: 300px;
+      border-radius: 1rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 2rem;
+      background-color: #ffffff;
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .prognosis-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      background-color: #fafafa;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .progress-bar {
+      background-color: #e5e7eb;
+      border-radius: 9999px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.5s ease-in-out;
+    }
+
+    .label-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 0.25rem;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      visibility: visible;
+    }
+  </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <div class="container">
+    <h1 class="text-3xl font-bold text-center text-gray-800">Probabilidad de Condiciones del Evento</h1>
+    <p class="text-center text-gray-600">Selecciona tu ubicación en el mapa, un evento y la hora para ver el pronóstico.
+    </p>
+
+    <!-- Mapa -->
+    <div id="map"></div>
+    <p class="text-center text-gray-500 text-sm">Arrastra el marcador para seleccionar tu ubicación.</p>
+
+    <!-- Controles de selección -->
+    <div class="grid md:grid-cols-3 gap-4">
+      <div>
+        <label for="event" class="block text-sm font-medium text-gray-700">Tipo de Evento</label>
+        <select id="event"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+          <option value="caminata">Caminata / Senderismo</option>
+          <option value="picnic">Picnic / Almuerzo al aire libre</option>
+          <option value="deporte">Deportes al aire libre</option>
+          <option value="playa">Día de playa</option>
+          <option value="campamento">Campamento</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="startHour" class="block text-sm font-medium text-gray-700">Hora de Inicio</label>
+        <input type="time" id="startHour" value="10:00"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+      </div>
+
+      <div>
+        <label for="endHour" class="block text-sm font-medium text-gray-700">Hora de Fin</label>
+        <input type="time" id="endHour" value="14:00"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+      </div>
+    </div>
+
+    <button id="getPrognosisBtn"
+      class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-full transition-colors duration-200">
+      Obtener Probabilidades
+    </button>
+
+    <!-- Resultados -->
+    <div id="prognosis-result" class="prognosis-card hidden">
+      <h2 class="text-xl font-bold mb-4 text-gray-800">Pronóstico de Condiciones</h2>
+
+      <div id="loading" class="text-center text-gray-500 hidden">
+        Cargando pronóstico...
+      </div>
+
+      <div id="prognosis-data" class="hidden">
+        <table class="w-full text-left text-gray-700 mb-4">
+          <thead>
+            <tr>
+              <th class="py-2">Hora</th>
+              <th class="py-2">Temperatura (°C)</th>
+              <th class="py-2">Viento (km/h)</th>
+              <th class="py-2">Humedad (%)</th>
+              <th class="py-2">Precipitación (mm)</th>
+            </tr>
+          </thead>
+          <tbody id="forecast-table-body">
+          </tbody>
+        </table>
+        <p class="text-center text-sm text-gray-500 mb-4">Los datos del pronóstico están disponibles hasta 7 días en el
+          futuro.</p>
+
+        <h3 class="text-lg font-semibold mb-2 text-gray-800">Probabilidad de Incomodidad</h3>
+        <div id="probabilities-container" class="space-y-4">
+          <!-- Las barras de progreso se generarán aquí -->
+        </div>
+      </div>
+      <div id="error-message" class="text-red-500 text-center hidden">
+        No se pudo obtener el pronóstico. Por favor, inténtalo de nuevo.
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast para mensajes -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const mapElement = document.getElementById('map');
+      const startHourInput = document.getElementById('startHour');
+      const endHourInput = document.getElementById('endHour');
+      const getPrognosisBtn = document.getElementById('getPrognosisBtn');
+      const prognosisResult = document.getElementById('prognosis-result');
+      const loadingIndicator = document.getElementById('loading');
+      const prognosisData = document.getElementById('prognosis-data');
+      const errorElement = document.getElementById('error-message');
+      const forecastTableBody = document.getElementById('forecast-table-body');
+      const probabilitiesContainer = document.getElementById('probabilities-container');
+      const toastElement = document.getElementById('toast');
+
+      const eventSelect = document.getElementById('event');
+
+      let map, marker;
+      let currentCoords = [4.7110, -74.0721]; // Coordenadas de Bogotá, Colombia por defecto
+      let currentEventData = {};
+
+      // Inicializar el mapa
+      function initMap() {
+        map = L.map(mapElement).setView(currentCoords, 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        marker = L.marker(currentCoords, {
+          draggable: true
+        }).addTo(map);
+
+        marker.on('dragend', (e) => {
+          const latlng = marker.getLatLng();
+          currentCoords = [latlng.lat, latlng.lng];
+          showToast(`Ubicación seleccionada: Lat ${latlng.lat.toFixed(2)}, Lon ${latlng.lng.toFixed(2)}`);
+        });
+      }
+
+      function showToast(message) {
+        toastElement.textContent = message;
+        toastElement.classList.add('show');
+        setTimeout(() => {
+          toastElement.classList.remove('show');
+        }, 3000);
+      }
+
+      // Umbrales de "incomodidad" por evento
+      const thresholds = {
+        caminata: {
+          frio: { temp: 10, prob: 0.8 },
+          calor: { temp: 28, prob: 0.8 },
+          viento: { speed: 20, prob: 0.7 },
+          humedo: { humidity: 80, prob: 0.6 },
+          lluvia: { precip: 1, prob: 0.9 }
+        },
+        picnic: {
+          frio: { temp: 15, prob: 0.7 },
+          calor: { temp: 30, prob: 0.9 },
+          viento: { speed: 15, prob: 0.8 },
+          humedo: { humidity: 75, prob: 0.5 },
+          lluvia: { precip: 0.5, prob: 1 }
+        },
+        deporte: {
+          frio: { temp: 12, prob: 0.7 },
+          calor: { temp: 25, prob: 0.9 },
+          viento: { speed: 25, prob: 0.8 },
+          humedo: { humidity: 85, prob: 0.6 },
+          lluvia: { precip: 2, prob: 0.9 }
+        },
+        playa: {
+          frio: { temp: 20, prob: 0.9 },
+          calor: { temp: 35, prob: 0.8 },
+          viento: { speed: 30, prob: 0.7 },
+          humedo: { humidity: 90, prob: 0.5 },
+          lluvia: { precip: 0.2, prob: 1 }
+        },
+        campamento: {
+          frio: { temp: 5, prob: 1 },
+          calor: { temp: 32, prob: 0.8 },
+          viento: { speed: 25, prob: 0.9 },
+          humedo: { humidity: 90, prob: 0.7 },
+          lluvia: { precip: 1.5, prob: 1 }
+        }
+      };
+
+      // Función para obtener el pronóstico de la API
+      async function getPrognosis(lat, lon, start, end) {
+        const apiURL = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&forecast_days=7&timezone=auto`;
+
+        try {
+          const response = await fetch(apiURL);
+          const data = await response.json();
+
+          const now = new Date();
+          const nowLocal = new Date(now.toLocaleString('en-US', { timeZone: data.timezone }));
+
+          const startDate = new Date();
+          const endDate = new Date();
+
+          startDate.setHours(start.split(':')[0], start.split(':')[1]);
+          endDate.setHours(end.split(':')[0], end.split(':')[1]);
+
+          // Si la hora de inicio es anterior a la hora actual, avanza un día
+          if (startDate < nowLocal) {
+            startDate.setDate(startDate.getDate() + 1);
+            endDate.setDate(endDate.getDate() + 1);
+          }
+
+          const startIndex = data.hourly.time.findIndex(t => {
+            const time = new Date(t);
+            return time.getHours() === startDate.getHours() && time.getDate() === startDate.getDate();
+          });
+
+          const endIndex = data.hourly.time.findIndex(t => {
+            const time = new Date(t);
+            return time.getHours() === endDate.getHours() && time.getDate() === endDate.getDate();
+          });
+
+          if (startIndex === -1 || endIndex === -1) {
+            showToast("No se encontró el pronóstico para el rango de tiempo seleccionado.");
+            return null;
+          }
+
+          const slicedData = {
+            time: data.hourly.time.slice(startIndex, endIndex + 1),
+            temperature_2m: data.hourly.temperature_2m.slice(startIndex, endIndex + 1),
+            relative_humidity_2m: data.hourly.relative_humidity_2m.slice(startIndex, endIndex + 1),
+            wind_speed_10m: data.hourly.wind_speed_10m.slice(startIndex, endIndex + 1),
+            precipitation: data.hourly.precipitation.slice(startIndex, endIndex + 1)
+          };
+
+          currentEventData = {
+            hourly: {
+              time: slicedData.time,
+              temp: slicedData.temperature_2m,
+              humidity: slicedData.relative_humidity_2m,
+              wind: slicedData.wind_speed_10m,
+              precipitation: slicedData.precipitation,
+            }
+          };
+
+          return currentEventData;
+
+        } catch (error) {
+          console.error("Error fetching weather data:", error);
+          return null;
+        }
+      }
+
+      // Función para calcular las probabilidades y actualizar la UI
+      function updateUI(eventData) {
+        forecastTableBody.innerHTML = '';
+        probabilitiesContainer.innerHTML = '';
+
+        if (!eventData || !eventData.hourly || eventData.hourly.time.length === 0) {
+          showToast("No hay datos disponibles para el rango de tiempo seleccionado.");
+          return;
+        }
+
+        const eventType = eventSelect.value;
+        const eventThresholds = thresholds[eventType];
+        const totalHours = eventData.hourly.time.length;
+
+        let probabilities = {
+          muy_frio: { count: 0, label: "Muy Frío" },
+          muy_caluroso: { count: 0, label: "Muy Caluroso" },
+          muy_ventoso: { count: 0, label: "Muy Ventoso" },
+          muy_humedo: { count: 0, label: "Muy Húmedo" },
+          lluvia: { count: 0, label: "Lluvia" },
+          muy_incomodo: { count: 0, label: "Generalmente Incómodo" }
+        };
+
+        let totalIncomfortableHours = 0;
+
+        eventData.hourly.time.forEach((hour, index) => {
+          const temp = eventData.hourly.temp[index];
+          const wind = eventData.hourly.wind[index];
+          const humidity = eventData.hourly.humidity[index];
+          const precip = eventData.hourly.precipitation[index];
+
+          // Actualizar tabla
+          const row = document.createElement('tr');
+          row.className = "border-b border-gray-200 hover:bg-gray-50";
+          row.innerHTML = `
+                        <td class="py-2">${new Date(hour).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td class="py-2">${temp.toFixed(1)}</td>
+                        <td class="py-2">${wind.toFixed(1)}</td>
+                        <td class="py-2">${humidity.toFixed(1)}</td>
+                        <td class="py-2">${precip.toFixed(1)}</td>
+                    `;
+          forecastTableBody.appendChild(row);
+
+          let isIncomfortable = false;
+
+          if (temp < eventThresholds.frio.temp) { probabilities.muy_frio.count++; isIncomfortable = true; }
+          if (temp > eventThresholds.calor.temp) { probabilities.muy_caluroso.count++; isIncomfortable = true; }
+          if (wind > eventThresholds.viento.speed) { probabilities.muy_ventoso.count++; isIncomfortable = true; }
+          if (humidity > eventThresholds.humedo.humidity) { probabilities.muy_humedo.count++; isIncomfortable = true; }
+          if (precip > eventThresholds.lluvia.precip) { probabilities.lluvia.count++; isIncomfortable = true; }
+
+          if (isIncomfortable) { totalIncomfortableHours++; }
+        });
+
+        probabilities.muy_incomodo.count = totalIncomfortableHours;
+
+        // Renderizar barras de progreso
+        for (const key in probabilities) {
+          const prob = probabilities[key];
+          const percentage = (prob.count / totalHours) * 100;
+
+          const bar = document.createElement('div');
+          bar.innerHTML = `
+                        <div class="label-container">
+                            <span class="font-semibold text-gray-700">${prob.label}</span>
+                            <span>${percentage.toFixed(0)}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%; background-color: ${getProgressBarColor(percentage)};"></div>
+                        </div>
+                    `;
+          probabilitiesContainer.appendChild(bar);
+        }
+
+        prognosisData.classList.remove('hidden');
+      }
+
+      // Función para obtener el color de la barra de progreso
+      function getProgressBarColor(percentage) {
+        if (percentage < 30) return '#4ade80'; // Verde
+        if (percentage < 70) return '#fbbf24'; // Amarillo
+        return '#ef4444'; // Rojo
+      }
+
+      // Event listener para el botón
+      getPrognosisBtn.addEventListener('click', async () => {
+        prognosisResult.classList.remove('hidden');
+        loadingIndicator.classList.remove('hidden');
+        prognosisData.classList.add('hidden');
+        errorElement.classList.add('hidden');
+
+        const startHour = startHourInput.value;
+        const endHour = endHourInput.value;
+
+        if (startHour === "" || endHour === "") {
+          showToast("Por favor, selecciona una hora de inicio y fin.");
+          loadingIndicator.classList.add('hidden');
+          return;
+        }
+
+        const forecastData = await getPrognosis(currentCoords[0], currentCoords[1], startHour, endHour);
+
+        loadingIndicator.classList.add('hidden');
+
+        if (forecastData) {
+          updateUI(forecastData);
+        } else {
+          errorElement.classList.remove('hidden');
+        }
+      });
+
+      // Inicializar la app
+      initMap();
+    });
+  </script>
+</body>
+
+</html>
